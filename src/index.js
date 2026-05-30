@@ -74,7 +74,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'flow_generate_image',
-    description: 'Generate an image using Google Flow Image Generation with Nano Banana or Imagen models. Fills prompt, selects model, configures ratio, and initiates generation. Single-job queue enforced.',
+    description: 'Generate an image using Google Flow Image Generation with Nano Banana or Imagen models. Fills prompt, selects model + ratio, submits to the AI Agent, waits for the Agent confirmation dialog ("Accepter"), approves generation, detects generated images in the DOM via media.getMediaUrlRedirect URLs, and downloads them through the authenticated session. Single-job queue enforced. Agent-mediated flow (not direct API call).',
     inputSchema: {
       type: 'object',
       properties: {

@@ -171,7 +171,47 @@ export async function createNewProject(page, name) {
     } catch { /* continue */ }
   }
 
-  const finalUrl = page.url();
+  let finalUrl = page.url();
+
+  // If we're not inside a project (no /project/ in URL), click the project card
+  if (!finalUrl.includes('/project/')) {
+    logger.info('Not inside project page, clicking project card to enter...');
+    await page.waitForTimeout(2000);
+
+    // Find all project links, click the newest (first in DOM order)
+    const cardClicked = await page.evaluate(() => {
+      const links = document.querySelectorAll('a[href*="/project/"]');
+      if (links.length > 0) {
+        const link = links[0]; // newest project = first in order
+        const href = link.getAttribute('href');
+        if (href) {
+          window.location.href = href.startsWith('http') ? href : 'https://labs.google' + href;
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (cardClicked) {
+      await page.waitForTimeout(3000);
+      finalUrl = page.url();
+      logger.info('Navigated into project', { url: finalUrl });
+    } else {
+      // Fallback: try clicking via Playwright
+      const projectLink = page.locator('a[href*="/project/"]').first();
+      if (await projectLink.isVisible().catch(() => false)) {
+        await projectLink.click();
+        await page.waitForTimeout(3000);
+        finalUrl = page.url();
+        logger.info('Navigated into project via click', { url: finalUrl });
+      } else {
+        await takeScreenshot(page, 'no-project-links');
+        throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+          'Could not find project card to navigate into. ' +
+          'The project was created but no card link was found.');
+      }
+    }
+  }
 
   // Store in local registry
   const store = loadProjects();
@@ -333,4 +373,59 @@ export async function getProjectContextInfo(page) {
     activeSection: section,
     projectId: inProject ? url.split('/project/')[1]?.split('/')[0] || url.split('/project/')[1] : null,
   };
+}
+
+/**
+ * Switch the project's bottom toolbar from Video mode to Image mode.
+ * The mode selector shows "Vidéo · 6s" by default; we click it
+ * and select "Image" from the dropdown.
+ * Returns true if Image mode is confirmed active.
+ */
+export async function switchToImageMode(page) {
+  logger.info('Checking current generation mode...');
+
+  // Check current mode - if it already shows something other than Vidéo, we're good
+  const currentMode = await page.evaluate(() => {
+    const btn = Array.from(document.querySelectorAll('button'))
+      .find(b => (b.textContent.includes('Vidéo') || b.textContent.includes('Image')) &&
+                 b.offsetParent !== null);
+    return btn ? btn.textContent.trim().substring(0, 30) : null;
+  }).catch(() => null);
+
+  if (currentMode && currentMode.includes('Image')) {
+    logger.info('Already in Image mode');
+    return true;
+  }
+
+  if (!currentMode || !currentMode.includes('Vidéo')) {
+    logger.warn('Could not determine current mode, trying to find mode selector');
+  }
+
+  // Strategy 1: Click the mode button (Vidéo/Image) and select Image from dropdown
+  // The dropdown is a Radix UI menu with role="tab" items for Image/Video/ratios/durations
+  const modeButton = page.locator('button', { hasText: 'Vidéo' }).first();
+  if (await modeButton.isVisible().catch(() => false)) {
+    logger.info('Clicking mode selector button to change from Video to Image');
+    await modeButton.click();
+    await page.waitForTimeout(1500);
+
+    // Look for Image option in the dropdown menu — items have role="tab" not role="menuitem"
+    // The Image tab has text "imageImage" and id containing "-trigger-IMAGE"
+    const imgTab = page.locator('[id*="trigger-IMAGE"], [role="tab"]:has-text("image")').first();
+    if (await imgTab.isVisible().catch(() => false)) {
+      await imgTab.click();
+      await page.waitForTimeout(1500);
+      logger.info('Switched to Image mode');
+
+      // Close the Radix dropdown overlay that remains open after selection
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+      return true;
+    }
+  }
+
+  logger.warn('Could not switch to Image mode; proceeding with current mode');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  return false;
 }

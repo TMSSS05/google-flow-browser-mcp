@@ -4,8 +4,8 @@ import { jobQueue } from '../queue/job-queue.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { takeScreenshot } from '../utils/screenshots.js';
 import { detectPageElements } from '../browser/safe-actions.js';
-import { prepareDownload, findNewFiles, saveMetadata } from '../utils/file-manager.js';
-import { ensureProjectInContext, navigateToSidebar, registerTaskInProject } from '../navigation/project-navigator.js';
+import { prepareDownload, saveMetadata } from '../utils/file-manager.js';
+import { ensureProjectInContext, switchToImageMode, registerTaskInProject } from '../navigation/project-navigator.js';
 import { get } from '../utils/config.js';
 import fs from 'fs';
 import path from 'path';
@@ -69,23 +69,24 @@ export async function handleGenerateImage(args) {
         `Ratio "${args.ratio}" not available. Available: ${get('ratios', []).join(', ')}`);
     }
 
-    // STEP 4: Try to find the image generation UI
-    // First take a snapshot to understand what we're looking at
+    // STEP 4: Detect page state and switch to Image mode if needed
     const elements = await detectPageElements(page);
     logger.info('Page elements detected in project', {
       buttons: elements.buttons.length,
       inputs: elements.inputs.length,
     });
 
-    // Check if we can find a prompt textarea/input directly
+    // Switch from Video mode to Image mode if needed
+    await switchToImageMode(page);
+
+    // STEP 5: Find the prompt input (contenteditable div at bottom toolbar)
     let promptInput = null;
 
-    // Strategy A: Look for a visible textarea or contenteditable div
     const promptCandidates = [
-      page.locator('textarea:visible, [contenteditable="true"]:visible').first(),
-      page.locator('textarea').first(),
+      page.locator('[contenteditable="true"]:visible').first(),
+      page.locator('textarea:visible').first(),
       page.locator('[contenteditable="true"]').first(),
-      page.locator('input[type="text"]:visible').first(),
+      page.locator('textarea').first(),
     ];
 
     for (const candidate of promptCandidates) {
@@ -96,30 +97,8 @@ export async function handleGenerateImage(args) {
       }
     }
 
-    // Strategy B: If no prompt found, try navigating sidebar to find the right section
-    if (!promptInput) {
-      logger.info('No prompt input found on current view, trying sidebar navigation');
-      await navigateToSidebar(page, 'Outils');
-      await page.waitForTimeout(2000);
-
-      // Check again for prompt input
-      for (const candidate of [
-        page.locator('textarea:visible, [contenteditable="true"]:visible').first(),
-        page.locator('textarea').first(),
-        page.locator('[contenteditable="true"]').first(),
-        page.locator('input[type="text"]:visible').first(),
-      ]) {
-        if (await candidate.isVisible().catch(() => false)) {
-          promptInput = candidate;
-          logger.info('Found prompt input after sidebar navigation');
-          break;
-        }
-      }
-    }
-
     if (!promptInput) {
       await takeScreenshot(page, 'no-prompt-input');
-      // Report available elements to help debugging
       const inputDetails = elements.inputs.map(i =>
         i.placeholder || i.ariaLabel || i.name || 'unnamed'
       ).filter(Boolean);
@@ -130,64 +109,23 @@ export async function handleGenerateImage(args) {
       );
     }
 
-    // STEP 5: Select model in UI if a model dropdown is visible
-    try {
-      const modelDropdown = page.locator(
-        'button:has-text("Nano Banana"), [class*="model"] button, text=/Nano Banana|Imagen/'
-      ).first();
-      if (await modelDropdown.isVisible().catch(() => false)) {
-        await modelDropdown.click();
-        await page.waitForTimeout(500);
-        const modelOption = page.locator(`text="${model}"`).first();
-        if (await modelOption.isVisible().catch(() => false)) {
-          await modelOption.click();
-          await page.waitForTimeout(500);
-        } else {
-          await page.keyboard.press('Escape');
-        }
-      }
-    } catch (err) {
-      logger.warn('Could not select model in UI, using default', { error: err.message });
-    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
 
-    // STEP 6: Select ratio in UI
-    try {
-      const ratioBtn = page.locator(
-        `button:has-text("${ratio}"), [class*="aspect"] button, text="${ratio}"`
-      ).first();
-      if (await ratioBtn.isVisible().catch(() => false)) {
-        await ratioBtn.click();
-        await page.waitForTimeout(500);
-      }
-    } catch (err) {
-      logger.warn('Could not select ratio, using default', { error: err.message });
-    }
-
-    // STEP 7: Select quantity
-    const qty = Math.min(Math.max(args.quantity || 1, 1), 4);
-    try {
-      const qtyBtn = page.locator(
-        `button:has-text("x${qty}"), [class*="quantity"] button`
-      ).first();
-      if (await qtyBtn.isVisible().catch(() => false)) {
-        await qtyBtn.click();
-        await page.waitForTimeout(500);
-      }
-    } catch (err) {
-      logger.warn('Could not select quantity, using default', { error: err.message });
-    }
-
-    // STEP 8: Fill the prompt
+    // STEP 6: Fill the prompt
     await promptInput.click();
     await promptInput.fill('');
     await page.waitForTimeout(200);
-    await promptInput.type(args.prompt, { delay: 20 });
+    await promptInput.type(args.prompt, { delay: 15 });
     logger.info('Prompt filled', { promptLength: args.prompt.length });
     await page.waitForTimeout(500);
 
-    // STEP 9: Click Generate
+    // STEP 7: Click the generate button (arrow_forwardCréer)
+    // IMPORTANT: Must use normal click() NOT { force: true } — force bypasses Radix/React
+    // event handlers that submit the prompt to the generation engine
     const generateBtnLocator = page.locator(
-      'button:has-text("Generate"), button:has-text("Créer"), [type="submit"]'
+      'button:has-text("arrow_forward"), ' +
+      'button:has-text("Generate")'
     ).first();
     const generateBtnVisible = await generateBtnLocator.isVisible().catch(() => false);
     if (!generateBtnVisible) {
@@ -201,102 +139,135 @@ export async function handleGenerateImage(args) {
       throw new FlowError(ErrorCodes.GENERATION_BUTTON_DISABLED, 'Generate button is disabled');
     }
 
-    // STEP 10: Prepare output directory
+    // STEP 8: Prepare output directory
     const outputDir = args.output_folder || prepareDownload('image', model, job.id).dir;
     if (args.output_folder) {
       if (!fs.existsSync(args.output_folder)) {
         fs.mkdirSync(args.output_folder, { recursive: true });
       }
     }
-    const beforeTime = Date.now();
 
-    // STEP 11: Set up download listener
-    const downloadPromise = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new FlowError(ErrorCodes.GENERATION_TIMEOUT,
-          'Generation timed out waiting for download'));
-      }, get('jobTimeoutMs', 300000));
-
-      page.on('download', async (download) => {
-        try {
-          const destPath = path.join(outputDir, `flow_${Date.now()}_${model}_image_${job.id}.png`);
-          await download.saveAs(destPath);
-          clearTimeout(timeout);
-          resolve([destPath]);
-        } catch (err) {
-          clearTimeout(timeout);
-          reject(err);
-        }
-      });
-    });
-
-    // STEP 12: Click generate
+    // STEP 9: Click generate
     logger.info('Clicking Generate');
     await generateBtnLocator.click();
 
-    // STEP 13: Wait for completion
-    let files = [];
-    try {
-      files = await downloadPromise;
-    } catch (err) {
-      logger.info('Waiting for generation to complete via UI');
-      await page.waitForTimeout(5000);
+    // STEP 10: Handle two possible generation flows:
+    //   A) Agent-mediated: Agent asks "Accepter?" before generating (when switching modes)
+    //   B) Direct: generation starts immediately (most common)
+    // Try Agent first (short wait), fall through to direct if not detected
 
-      let attempts = 0;
-      const maxAttempts = get('maxPollAttempts', 120);
-      while (attempts < maxAttempts) {
-        await page.waitForTimeout(get('generationPollIntervalMs', 5000));
-        attempts++;
+    let flowMode = 'direct';
+    logger.info('Checking for Agent confirmation dialog (5s window)...');
+    const acceptTimeoutMs = get('agentResponseTimeoutMs', 5000);
+    const acceptStart = Date.now();
 
-        const doneLocator = page.locator(
-          'text=Download, text=Télécharger, [aria-label*="download"], button:has-text("Download")'
-        ).first();
-        if (await doneLocator.isVisible().catch(() => false)) {
-          logger.info('Generation complete, downloading');
-          await doneLocator.click();
-          await page.waitForTimeout(3000);
-          break;
-        }
-
-        const captchaLocator = page.locator(
-          'text=captcha, text=verify, text=vérification, iframe[src*="captcha"]'
-        ).first();
-        if (await captchaLocator.isVisible().catch(() => false)) {
-          jobQueue.setManualAction(job.id);
-          await takeScreenshot(page, 'captcha-detected');
-          throw new FlowError(ErrorCodes.MANUAL_VERIFICATION_REQUIRED,
-            'Captcha or verification required. Manual intervention needed.');
-        }
-
-        if (attempts % 20 === 0) {
-          logger.info('Still generating...', { attempts, jobId: job.id });
-          await takeScreenshot(page, `generating-progress-${attempts}`);
-        }
+    while (Date.now() - acceptStart < acceptTimeoutMs) {
+      const pageText = await page.evaluate(() => document.body.innerText).catch(() => '');
+      if (pageText.includes('Accepter') || pageText.includes('Approve')) {
+        logger.info('Agent confirmation dialog detected — switching to Agent flow');
+        const acceptBtn = page.locator('button').filter({ hasText: /Accepter|Approve/ }).first();
+        await acceptBtn.click();
+        logger.info('Generation confirmed via Agent');
+        flowMode = 'agent';
+        break;
       }
-
-      if (attempts >= maxAttempts) {
-        throw new FlowError(ErrorCodes.GENERATION_TIMEOUT,
-          `Generation did not complete within ${maxAttempts * 5} seconds`);
-      }
-
-      const newFiles = findNewFiles(outputDir, beforeTime);
-      files = newFiles;
+      await page.waitForTimeout(500);
     }
 
-    if (!files || files.length === 0) {
-      await takeScreenshot(page, 'no-files-after-gen');
-      throw new FlowError(ErrorCodes.DOWNLOAD_FAILED, 'No files were downloaded after generation');
+    logger.info('Generation flow', { mode: flowMode });
+
+    // STEP 11: Wait for images to appear in the DOM
+    // Images appear as <img> with src via media.getMediaUrlRedirect trpc endpoint
+    logger.info('Waiting for generated images...');
+    let generatedImageUuids = [];
+    const genTimeoutMs = get('generationTimeoutMs', 120000);
+    const genStart = Date.now();
+
+    while (Date.now() - genStart < genTimeoutMs) {
+      await page.waitForTimeout(2000);
+
+      const imageUuids = await page.evaluate(() => {
+        const imgs = Array.from(document.querySelectorAll('img'));
+        const uuids = [];
+        imgs.forEach(img => {
+          const src = img.src || '';
+          const match = src.match(/media\.getMediaUrlRedirect\?name=([a-f0-9-]+)/);
+          if (match && img.width > 100) {
+            uuids.push(match[1]);
+          }
+        });
+        return [...new Set(uuids)];
+      });
+
+      if (imageUuids.length > 0) {
+        generatedImageUuids = imageUuids;
+        logger.info('Generated images detected in DOM', { count: imageUuids.length });
+        break;
+      }
+
+      const hasDownload = await page.locator(
+        'text=Télécharger, text=download, [aria-label*="download"]'
+      ).first().isVisible().catch(() => false);
+      if (hasDownload) {
+        logger.info('Download button appeared after generation');
+        break;
+      }
+
+      if ((Date.now() - genStart) % 30000 === 0) {
+        logger.info('Still waiting for images...', { elapsed: Date.now() - genStart });
+        await takeScreenshot(page, `gen-wait-${Math.round((Date.now() - genStart) / 1000)}s`);
+      }
     }
 
-    // STEP 14: Save metadata
+    if (generatedImageUuids.length === 0) {
+      await takeScreenshot(page, 'no-images-detected');
+      throw new FlowError(ErrorCodes.DOWNLOAD_FAILED,
+        'Generation completed but no images were detected in the DOM. ' +
+        'Check the Flow project content library.');
+    }
+
+    // STEP 12: Download generated images via authenticated session
+    logger.info('Downloading generated images', { count: generatedImageUuids.length });
+    const downloadedFiles = [];
+
+    for (const uuid of generatedImageUuids) {
+      try {
+        const response = await page.goto(
+          `https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=${uuid}`,
+          { waitUntil: 'load', timeout: 15000 }
+        );
+
+        if (response && response.ok()) {
+          const contentType = response.headers()['content-type'] || '';
+          if (contentType.startsWith('image/')) {
+            const buffer = await response.body();
+            const ext = contentType === 'image/png' ? '.png' : '.jpg';
+            const destPath = path.join(outputDir, `flow_${uuid.substring(0, 8)}_${job.id}${ext}`);
+            fs.writeFileSync(destPath, buffer);
+            downloadedFiles.push(destPath);
+            logger.info('Image downloaded', { uuid, size: buffer.length, path: destPath });
+          }
+        }
+      } catch (err) {
+        logger.warn('Failed to download image', { uuid, error: err.message });
+      }
+    }
+
+    if (downloadedFiles.length === 0) {
+      await takeScreenshot(page, 'download-failed');
+      throw new FlowError(ErrorCodes.DOWNLOAD_FAILED,
+        'Failed to download any generated images via the authenticated session');
+    }
+
     saveMetadata(job.id, {
       type: 'image',
       model,
       ratio,
-      quantity: qty,
+      quantity: args.quantity || 1,
       prompt: args.prompt,
-      files,
+      files: downloadedFiles,
       jobId: job.id,
+      imageUuids: generatedImageUuids,
     });
 
     jobQueue.completeJob(job.id, {
@@ -305,9 +276,9 @@ export async function handleGenerateImage(args) {
       account: get('expectedAccount'),
       model_used: model,
       ratio,
-      quantity: qty,
       prompt: args.prompt,
-      files,
+      files: downloadedFiles,
+      image_count: downloadedFiles.length,
     });
 
     return jobQueue.getJob(job.id).result;

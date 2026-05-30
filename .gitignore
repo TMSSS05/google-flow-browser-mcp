@@ -9,3 +9,4 @@ config/flow.projects.json
 .env
 .DS_Store
 *.log
+test-agent-generation.js
