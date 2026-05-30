@@ -1,0 +1,10 @@
+node_modules/
+logs/
+screenshots-debug/
+outputs/
+chrome-profile-kiara/
+screenshot*.png
+config/flow.config.json
+.env
+.DS_Store
+*.log

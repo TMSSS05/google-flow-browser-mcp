@@ -1,0 +1,30 @@
+{
+  "_description": "UI selectors map for Google Flow. Discovered via flow_discover_ui. Update when Flow UI changes.",
+  "_lastUpdated": null,
+  "main": {
+    "url": "https://labs.google/fx/tools/flow",
+    "selectors": {}
+  },
+  "imageGeneration": {
+    "selectors": {}
+  },
+  "videoGeneration": {
+    "selectors": {}
+  },
+  "characters": {
+    "url": null,
+    "selectors": {}
+  },
+  "scenes": {
+    "url": null,
+    "selectors": {}
+  },
+  "toolsGallery": {
+    "url": null,
+    "selectors": {}
+  },
+  "gridArchitect": {
+    "url": null,
+    "selectors": {}
+  }
+}
