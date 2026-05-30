@@ -5,6 +5,7 @@ import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { takeScreenshot } from '../utils/screenshots.js';
 import { detectPageElements } from '../browser/safe-actions.js';
 import { prepareDownload, findNewFiles, saveMetadata } from '../utils/file-manager.js';
+import { ensureProjectInContext, navigateToSidebar, registerTaskInProject } from '../navigation/project-navigator.js';
 import { get } from '../utils/config.js';
 import fs from 'fs';
 import path from 'path';
@@ -12,7 +13,6 @@ import path from 'path';
 function selectModel(requested) {
   const available = get('imageModels', {});
   if (!requested || requested === 'auto') {
-    // Smart default based on content
     return 'Nano Banana 2';
   }
   if (available[requested]) return requested;
@@ -38,23 +38,21 @@ export async function handleGenerateImage(args) {
     useScene: args.use_scene,
     useTool: args.use_tool,
     references: args.references,
+    project_name: args.project_name,
+    campaign: args.campaign,
   });
 
   try {
     jobQueue.startJob(job.id);
     const page = getPage();
 
-    // 1. Verify we're on Flow
-    const currentUrl = page.url();
-    if (!currentUrl.includes('labs.google')) {
-      await page.goto(get('flowUrl', 'https://labs.google/fx/tools/flow'), {
-        waitUntil: 'networkidle',
-        timeout: 30000,
-      });
-      await page.waitForTimeout(2000);
-    }
+    // STEP 1: Ensure we're in a project context
+    await ensureProjectInContext(page, {
+      name: args.project_name,
+      campaign: args.campaign,
+    });
 
-    // 2. Model selection
+    // STEP 2: Model selection (config-level, before UI interaction)
     const model = selectModel(args.model);
     if (!model) {
       const available = Object.keys(get('imageModels', {}));
@@ -64,83 +62,133 @@ export async function handleGenerateImage(args) {
     }
     logger.info('Using model', { model });
 
-    // 3. Ratio selection
+    // STEP 3: Ratio selection
     const ratio = selectRatio(args.ratio);
     if (!ratio) {
       throw new FlowError(ErrorCodes.RATIO_NOT_AVAILABLE,
         `Ratio "${args.ratio}" not available. Available: ${get('ratios', []).join(', ')}`);
     }
 
-    // 4. Select Image mode
-    logger.info('Selecting Image mode');
-    const imageModeBtn = await page.locator('button:has-text("Image"), [role="tab"]:has-text("Image"), [data-testid*="image"], text=Image').first().isVisible().catch(() => false);
-    if (imageModeBtn) {
-      await page.locator('button:has-text("Image"), [role="tab"]:has-text("Image"), [data-testid*="image"], text=Image').first().click();
-      await page.waitForTimeout(1000);
-    } else {
-      logger.warn('Image mode button not found, may already be in image mode');
-      await takeScreenshot(page, 'image-mode-check');
+    // STEP 4: Try to find the image generation UI
+    // First take a snapshot to understand what we're looking at
+    const elements = await detectPageElements(page);
+    logger.info('Page elements detected in project', {
+      buttons: elements.buttons.length,
+      inputs: elements.inputs.length,
+    });
+
+    // Check if we can find a prompt textarea/input directly
+    let promptInput = null;
+
+    // Strategy A: Look for a visible textarea or contenteditable div
+    const promptCandidates = [
+      page.locator('textarea:visible, [contenteditable="true"]:visible').first(),
+      page.locator('textarea').first(),
+      page.locator('[contenteditable="true"]').first(),
+      page.locator('input[type="text"]:visible').first(),
+    ];
+
+    for (const candidate of promptCandidates) {
+      if (await candidate.isVisible().catch(() => false)) {
+        promptInput = candidate;
+        logger.info('Found prompt input on page');
+        break;
+      }
     }
 
-    // 5. Try to select model dropdown if visible
+    // Strategy B: If no prompt found, try navigating sidebar to find the right section
+    if (!promptInput) {
+      logger.info('No prompt input found on current view, trying sidebar navigation');
+      await navigateToSidebar(page, 'Outils');
+      await page.waitForTimeout(2000);
+
+      // Check again for prompt input
+      for (const candidate of [
+        page.locator('textarea:visible, [contenteditable="true"]:visible').first(),
+        page.locator('textarea').first(),
+        page.locator('[contenteditable="true"]').first(),
+        page.locator('input[type="text"]:visible').first(),
+      ]) {
+        if (await candidate.isVisible().catch(() => false)) {
+          promptInput = candidate;
+          logger.info('Found prompt input after sidebar navigation');
+          break;
+        }
+      }
+    }
+
+    if (!promptInput) {
+      await takeScreenshot(page, 'no-prompt-input');
+      // Report available elements to help debugging
+      const inputDetails = elements.inputs.map(i =>
+        i.placeholder || i.ariaLabel || i.name || 'unnamed'
+      ).filter(Boolean);
+      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+        'Could not find prompt input field inside the project. ' +
+        'The Flow UI may have changed. Available inputs: ' +
+        (inputDetails.length ? inputDetails.join(', ') : 'none detected'),
+      );
+    }
+
+    // STEP 5: Select model in UI if a model dropdown is visible
     try {
-      const modelVisible = await page.locator('button:has-text("Nano Banana"), [class*="model"] button, text=/Nano Banana|Imagen/').first().isVisible().catch(() => false);
-      if (modelVisible) {
-        await page.locator('button:has-text("Nano Banana"), [class*="model"] button, text=/Nano Banana|Imagen/').first().click();
+      const modelDropdown = page.locator(
+        'button:has-text("Nano Banana"), [class*="model"] button, text=/Nano Banana|Imagen/'
+      ).first();
+      if (await modelDropdown.isVisible().catch(() => false)) {
+        await modelDropdown.click();
         await page.waitForTimeout(500);
-        const modelOption = await page.locator(`text="${model}"`).first().isVisible().catch(() => false);
-        if (modelOption) {
-          await page.locator(`text="${model}"`).first().click();
+        const modelOption = page.locator(`text="${model}"`).first();
+        if (await modelOption.isVisible().catch(() => false)) {
+          await modelOption.click();
           await page.waitForTimeout(500);
         } else {
           await page.keyboard.press('Escape');
         }
       }
     } catch (err) {
-      logger.warn('Could not select model, using default', { error: err.message });
+      logger.warn('Could not select model in UI, using default', { error: err.message });
     }
 
-    // 6. Select ratio
+    // STEP 6: Select ratio in UI
     try {
-      const ratioVisible = await page.locator(`button:has-text("${ratio}"), [class*="aspect"] button, text="${ratio}"`).first().isVisible().catch(() => false);
-      if (ratioVisible) {
-        await page.locator(`button:has-text("${ratio}"), [class*="aspect"] button, text="${ratio}"`).first().click();
+      const ratioBtn = page.locator(
+        `button:has-text("${ratio}"), [class*="aspect"] button, text="${ratio}"`
+      ).first();
+      if (await ratioBtn.isVisible().catch(() => false)) {
+        await ratioBtn.click();
         await page.waitForTimeout(500);
       }
     } catch (err) {
       logger.warn('Could not select ratio, using default', { error: err.message });
     }
 
-    // 7. Select quantity
+    // STEP 7: Select quantity
     const qty = Math.min(Math.max(args.quantity || 1, 1), 4);
     try {
-      const qtyVisible = await page.locator(`button:has-text("x${qty}"), [class*="quantity"] button`).first().isVisible().catch(() => false);
-      if (qtyVisible) {
-        await page.locator(`button:has-text("x${qty}"), [class*="quantity"] button`).first().click();
+      const qtyBtn = page.locator(
+        `button:has-text("x${qty}"), [class*="quantity"] button`
+      ).first();
+      if (await qtyBtn.isVisible().catch(() => false)) {
+        await qtyBtn.click();
         await page.waitForTimeout(500);
       }
     } catch (err) {
       logger.warn('Could not select quantity, using default', { error: err.message });
     }
 
-    // 8. Fill the prompt
-    const promptInputLocator = page.locator('textarea, [contenteditable="true"], input[type="text"]').first();
-    const promptInput = await promptInputLocator.isVisible().catch(() => false) ? promptInputLocator : null;
-    if (!promptInput) {
-      await takeScreenshot(page, 'no-prompt-input');
-      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE, 'Could not find prompt input field');
-    }
-
+    // STEP 8: Fill the prompt
     await promptInput.click();
     await promptInput.fill('');
     await page.waitForTimeout(200);
     await promptInput.type(args.prompt, { delay: 20 });
     logger.info('Prompt filled', { promptLength: args.prompt.length });
-
     await page.waitForTimeout(500);
 
-    // 9. Click Generate
-    const generateBtnLocator = page.locator('button:has-text("Generate"), button:has-text("Créer"), [type="submit"]').first();
+    // STEP 9: Click Generate
+    const generateBtnLocator = page.locator(
+      'button:has-text("Generate"), button:has-text("Créer"), [type="submit"]'
+    ).first();
     const generateBtnVisible = await generateBtnLocator.isVisible().catch(() => false);
     if (!generateBtnVisible) {
       await takeScreenshot(page, 'no-generate-btn');
@@ -153,7 +201,7 @@ export async function handleGenerateImage(args) {
       throw new FlowError(ErrorCodes.GENERATION_BUTTON_DISABLED, 'Generate button is disabled');
     }
 
-    // Record time before download
+    // STEP 10: Prepare output directory
     const outputDir = args.output_folder || prepareDownload('image', model, job.id).dir;
     if (args.output_folder) {
       if (!fs.existsSync(args.output_folder)) {
@@ -162,16 +210,15 @@ export async function handleGenerateImage(args) {
     }
     const beforeTime = Date.now();
 
-    // Check for download path setup
-    // Playwright downloads can be handled via page.on('download')
+    // STEP 11: Set up download listener
     const downloadPromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new FlowError(ErrorCodes.GENERATION_TIMEOUT, 'Generation timed out waiting for download'));
+        reject(new FlowError(ErrorCodes.GENERATION_TIMEOUT,
+          'Generation timed out waiting for download'));
       }, get('jobTimeoutMs', 300000));
 
       page.on('download', async (download) => {
         try {
-          const suggestedName = download.suggestedFilename();
           const destPath = path.join(outputDir, `flow_${Date.now()}_${model}_image_${job.id}.png`);
           await download.saveAs(destPath);
           clearTimeout(timeout);
@@ -183,28 +230,27 @@ export async function handleGenerateImage(args) {
       });
     });
 
-    // Click generate
+    // STEP 12: Click generate
     logger.info('Clicking Generate');
     await generateBtnLocator.click();
 
-    // Wait for either download or UI completion
+    // STEP 13: Wait for completion
     let files = [];
     try {
       files = await downloadPromise;
     } catch (err) {
-      // If download event didn't fire, wait for UI to show completion
       logger.info('Waiting for generation to complete via UI');
       await page.waitForTimeout(5000);
 
-      // Poll for completion
       let attempts = 0;
       const maxAttempts = get('maxPollAttempts', 120);
       while (attempts < maxAttempts) {
         await page.waitForTimeout(get('generationPollIntervalMs', 5000));
         attempts++;
 
-        // Check for completion indicators
-        const doneLocator = page.locator('text=Download, text=Télécharger, [aria-label*="download"], button:has-text("Download")').first();
+        const doneLocator = page.locator(
+          'text=Download, text=Télécharger, [aria-label*="download"], button:has-text("Download")'
+        ).first();
         if (await doneLocator.isVisible().catch(() => false)) {
           logger.info('Generation complete, downloading');
           await doneLocator.click();
@@ -212,8 +258,9 @@ export async function handleGenerateImage(args) {
           break;
         }
 
-        // Check for manual action required (captcha, etc.)
-        const captchaLocator = page.locator('text=captcha, text=verify, text=vérification, iframe[src*="captcha"]').first();
+        const captchaLocator = page.locator(
+          'text=captcha, text=verify, text=vérification, iframe[src*="captcha"]'
+        ).first();
         if (await captchaLocator.isVisible().catch(() => false)) {
           jobQueue.setManualAction(job.id);
           await takeScreenshot(page, 'captcha-detected');
@@ -232,7 +279,6 @@ export async function handleGenerateImage(args) {
           `Generation did not complete within ${maxAttempts * 5} seconds`);
       }
 
-      // Now try to find downloaded files
       const newFiles = findNewFiles(outputDir, beforeTime);
       files = newFiles;
     }
@@ -242,7 +288,7 @@ export async function handleGenerateImage(args) {
       throw new FlowError(ErrorCodes.DOWNLOAD_FAILED, 'No files were downloaded after generation');
     }
 
-    // Save metadata
+    // STEP 14: Save metadata
     saveMetadata(job.id, {
       type: 'image',
       model,

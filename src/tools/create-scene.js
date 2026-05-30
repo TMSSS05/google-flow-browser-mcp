@@ -3,16 +3,15 @@ import { getPage } from '../browser/connect.js';
 import { takeScreenshot } from '../utils/screenshots.js';
 import { detectPageElements } from '../browser/safe-actions.js';
 import { saveMetadata } from '../utils/file-manager.js';
+import { ensureProjectInContext, navigateToSidebar } from '../navigation/project-navigator.js';
 
 export async function handleOpenScenes() {
   const page = getPage();
-  const baseUrl = 'https://labs.google/fx/tools/flow';
-
-  await page.goto(baseUrl + '/scenes', { waitUntil: 'networkidle', timeout: 30000 });
+  await navigateToSidebar(page, 'Scènes');
   await page.waitForTimeout(2000);
 
-  const elements = await detectPageElements();
-  const screenshot = await takeScreenshot(page, 'scenes-page');
+  const elements = await detectPageElements(page);
+  const screenshot = await takeScreenshot(page, 'scenes-section');
 
   return {
     status: 'opened',
@@ -25,13 +24,20 @@ export async function handleOpenScenes() {
 
 export async function handleCreateScene(args) {
   const page = getPage();
-  await page.goto('https://labs.google/fx/tools/flow/scenes', { waitUntil: 'networkidle', timeout: 30000 });
+
+  await ensureProjectInContext(page, {
+    name: args.project_name,
+    campaign: args.campaign,
+  });
+
+  await navigateToSidebar(page, 'Scènes');
   await page.waitForTimeout(2000);
+  await takeScreenshot(page, 'scenes-section');
 
-  await takeScreenshot(page, 'scenes-page');
-
-  const elements = await detectPageElements();
-  const newSceneLocator = page.locator('button:has-text("New Scene"), button:has-text("Créer")').first();
+  const elements = await detectPageElements(page);
+  const newSceneLocator = page.locator(
+    'button:has-text("New Scene"), button:has-text("Créer"), button:has-text("Nouvelle scène")'
+  ).first();
 
   if (await newSceneLocator.isVisible().catch(() => false)) {
     await newSceneLocator.click();
@@ -59,6 +65,8 @@ export async function handleCreateScene(args) {
       type: 'scene',
       description: args.description,
       referenceImage: args.reference_image,
+      projectName: args.project_name,
+      campaign: args.campaign,
     });
   }
 
@@ -71,10 +79,10 @@ export async function handleCreateScene(args) {
 
 export async function handleListScenes() {
   const page = getPage();
-  await page.goto('https://labs.google/fx/tools/flow/scenes', { waitUntil: 'networkidle', timeout: 30000 });
+  await navigateToSidebar(page, 'Scènes');
   await page.waitForTimeout(2000);
 
-  const elements = await detectPageElements();
+  const elements = await detectPageElements(page);
   const sceneCards = elements.buttons.filter(b =>
     !b.text.includes('New') && !b.text.includes('Créer') && b.text.length > 2
   );

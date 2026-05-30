@@ -2,28 +2,46 @@ import { logger } from '../utils/logger.js';
 import { getPage } from '../browser/connect.js';
 import { jobQueue } from '../queue/job-queue.js';
 import { takeScreenshot } from '../utils/screenshots.js';
-import { detectPageElements, safeClick, safeFill } from '../browser/safe-actions.js';
-import { saveMetadata, prepareDownload } from '../utils/file-manager.js';
+import { detectPageElements } from '../browser/safe-actions.js';
+import { saveMetadata } from '../utils/file-manager.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
-import { get } from '../utils/config.js';
+import { ensureProjectInContext, navigateToSidebar } from '../navigation/project-navigator.js';
 import fs from 'fs';
-import path from 'path';
 
 export async function handleUseGridArchitect(args) {
-  const job = jobQueue.createJob('grid_architect', args);
+  const job = jobQueue.createJob('grid_architect', {
+    ...args,
+    project_name: args.project_name,
+    campaign: args.campaign,
+  });
 
   try {
     jobQueue.startJob(job.id);
     const page = getPage();
 
-    const toolUrl = 'https://labs.google/fx/tools/flow/tools/grid-architect';
-    await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
-    await page.waitForTimeout(3000);
+    await ensureProjectInContext(page, {
+      name: args.project_name,
+      campaign: args.campaign,
+    });
+
+    // Navigate to Outils sidebar section
+    await navigateToSidebar(page, 'Outils');
+    await page.waitForTimeout(2000);
+    await takeScreenshot(page, 'tools-section');
+
+    // Find and click Grid Architect within tools
+    const gaLocator = page.locator(
+      'a:has-text("Grille"), a:has-text("Grid"), button:has-text("Grille"), button:has-text("Grid"), text=Architect'
+    ).first();
+    if (await gaLocator.isVisible().catch(() => false)) {
+      await gaLocator.click();
+      await page.waitForTimeout(3000);
+    }
 
     await takeScreenshot(page, 'grid-architect-loaded');
 
-    // Detect all UI elements first
-    const elements = await detectPageElements();
+    // Detect all UI elements
+    const elements = await detectPageElements(page);
 
     // Set engine if specified
     if (args.engine) {
@@ -75,10 +93,8 @@ export async function handleUseGridArchitect(args) {
       for (let i = 0; i < args.shot_prompts.length; i++) {
         const shotLabel = `Shot ${i + 1}`;
         const shotLocator = page.locator(`text="${shotLabel}"`).first();
-        // Find nearest textarea sibling/ancestor
         const shotInput = await shotLocator.isVisible().catch(() => false) ? shotLocator : null;
         if (shotInput) {
-          // Try clicking near the shot label and then find closest textarea
           await shotInput.click();
           await page.waitForTimeout(200);
           const nearestTextarea = page.locator('textarea').first();
@@ -113,6 +129,8 @@ export async function handleUseGridArchitect(args) {
       ratio: args.ratio,
       themePrompt: args.theme_prompt,
       shotCount: args.shot_prompts?.length || 0,
+      projectName: args.project_name,
+      campaign: args.campaign,
       status: 'ready_for_confirmation',
     });
 

@@ -6,33 +6,41 @@ import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { get } from '../utils/config.js';
 import { detectPageElements } from '../browser/safe-actions.js';
 import { saveMetadata } from '../utils/file-manager.js';
+import { ensureProjectInContext, navigateToSidebar } from '../navigation/project-navigator.js';
 
 export async function handleCreateCharacter(args) {
-  const job = jobQueue.createJob('create_character', args);
+  const job = jobQueue.createJob('create_character', {
+    ...args,
+    project_name: args.project_name,
+    campaign: args.campaign,
+  });
 
   try {
     jobQueue.startJob(job.id);
     const page = getPage();
 
-    // Navigate to characters page
-    const currentUrl = page.url();
-    const baseUrl = 'https://labs.google/fx/tools/flow';
-    const charsUrl = currentUrl.includes('labs.google')
-      ? currentUrl.replace(/\/$/, '') + '/characters'
-      : baseUrl + '/characters';
+    // Ensure we're inside a project
+    await ensureProjectInContext(page, {
+      name: args.project_name,
+      campaign: args.campaign,
+    });
 
-    await page.goto(charsUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    // Navigate to the Personnages sidebar section
+    await navigateToSidebar(page, 'Personnages');
     await page.waitForTimeout(2000);
 
-    await takeScreenshot(page, 'characters-page');
+    await takeScreenshot(page, 'characters-section');
 
     // Look for "New Character" button
-    const newCharLocator = page.locator('button:has-text("New Character"), button:has-text("Créer"), text=New Character, text=Nouveau').first();
+    const newCharLocator = page.locator(
+      'button:has-text("New Character"), button:has-text("Créer"), button:has-text("Nouveau"), text=New Character, text=Nouveau'
+    ).first();
+
     if (!await newCharLocator.isVisible().catch(() => false)) {
-      const elements = await detectPageElements();
+      const elements = await detectPageElements(page);
       return {
         status: 'ui_discovered',
-        message: 'Characters page opened. New Character button not auto-detected. UI elements found.',
+        message: 'Characters section opened. New Character button not auto-detected.',
         elements: {
           buttons: elements.buttons.map(b => b.text),
           inputs: elements.inputs,
@@ -44,8 +52,10 @@ export async function handleCreateCharacter(args) {
     await newCharLocator.click();
     await page.waitForTimeout(1500);
 
-    // Look for description input
-    const descLocator = page.locator('textarea, [contenteditable="true"], input[placeholder*="cribe"], input[placeholder*="description"]').first();
+    // Fill character description
+    const descLocator = page.locator(
+      'textarea, [contenteditable="true"], input[placeholder*="cribe"], input[placeholder*="description"]'
+    ).first();
     if (await descLocator.isVisible().catch(() => false)) {
       await descLocator.click();
       await descLocator.fill('');
@@ -53,7 +63,7 @@ export async function handleCreateCharacter(args) {
       await descLocator.type(args.description, { delay: 20 });
     }
 
-    // Look for reference image upload
+    // Upload reference image if provided
     if (args.reference_image) {
       const fileLocator = page.locator('input[type="file"]').first();
       if (await fileLocator.isVisible().catch(() => false)) {
@@ -81,6 +91,8 @@ export async function handleCreateCharacter(args) {
       description: args.description,
       model: args.model,
       referenceImage: args.reference_image,
+      projectName: args.project_name,
+      campaign: args.campaign,
       jobId: job.id,
       status: 'ready_for_confirmation',
     });
@@ -89,7 +101,7 @@ export async function handleCreateCharacter(args) {
       status: 'ready_for_confirmation',
       type: 'character',
       description: args.description,
-      message: 'Character setup complete. Manual confirmation needed to create (may use credits).',
+      message: 'Character setup complete. Manual confirmation needed to create.',
       screenshot: await takeScreenshot(page, 'character-ready'),
     });
 
@@ -103,14 +115,10 @@ export async function handleCreateCharacter(args) {
 
 export async function handleListCharacters() {
   const page = getPage();
-  const charsUrl = page.url().includes('labs.google')
-    ? page.url().replace(/\/$/, '') + '/characters'
-    : 'https://labs.google/fx/tools/flow/characters';
-
-  await page.goto(charsUrl, { waitUntil: 'networkidle', timeout: 30000 });
+  await navigateToSidebar(page, 'Personnages');
   await page.waitForTimeout(2000);
 
-  const elements = await detectPageElements();
+  const elements = await detectPageElements(page);
   const characterCards = elements.buttons.filter(b =>
     !b.text.includes('New') && !b.text.includes('Créer') && b.text.length > 2
   );

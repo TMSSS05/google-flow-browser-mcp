@@ -2,16 +2,15 @@ import { logger } from '../utils/logger.js';
 import { getPage } from '../browser/connect.js';
 import { takeScreenshot } from '../utils/screenshots.js';
 import { detectPageElements } from '../browser/safe-actions.js';
+import { ensureProjectInContext, navigateToSidebar } from '../navigation/project-navigator.js';
 
 export async function handleOpenToolsGallery() {
   const page = getPage();
-  const baseUrl = 'https://labs.google/fx/tools/flow';
-
-  await page.goto(baseUrl + '/tools?tab=GALLERY', { waitUntil: 'networkidle', timeout: 30000 });
+  await navigateToSidebar(page, 'Outils');
   await page.waitForTimeout(2000);
 
-  const elements = await detectPageElements();
-  const screenshot = await takeScreenshot(page, 'tools-gallery');
+  const elements = await detectPageElements(page);
+  const screenshot = await takeScreenshot(page, 'tools-section');
 
   return {
     status: 'opened',
@@ -24,24 +23,14 @@ export async function handleOpenToolsGallery() {
 
 export async function handleListTools() {
   const page = getPage();
-  const elements = await detectPageElements();
+  await navigateToSidebar(page, 'Outils');
+  await page.waitForTimeout(2000);
 
-  // Try to switch to "My Tools" tab
-  const myToolsLocator = page.locator('button:has-text("My Tools"), [role="tab"]:has-text("My Tools")').first();
-  if (await myToolsLocator.isVisible().catch(() => false)) {
-    await myToolsLocator.click();
-    await page.waitForTimeout(1000);
-    const myToolsElements = await detectPageElements();
-    return {
-      discover: elements,
-      my_tools: myToolsElements,
-      screenshot: await takeScreenshot(page, 'my-tools'),
-    };
-  }
+  const elements = await detectPageElements(page);
 
   return {
     tools_found: elements,
-    screenshot: await takeScreenshot(page, 'tools-gallery'),
+    screenshot: await takeScreenshot(page, 'tools-section'),
   };
 }
 
@@ -53,21 +42,20 @@ export async function handleOpenTool(args) {
     throw new Error('Tool name is required');
   }
 
-  logger.info('Opening tool', { toolName });
+  logger.info('Opening tool', { toolName, projectName: args.project_name });
 
-  await page.goto('https://labs.google/fx/tools/flow/tools?tab=GALLERY', {
-    waitUntil: 'networkidle',
-    timeout: 30000,
-  });
+  await navigateToSidebar(page, 'Outils');
   await page.waitForTimeout(2000);
 
-  // Try to find and click the tool
-  const toolLocator = page.locator(`a:has-text("${toolName}"), button:has-text("${toolName}"), text="${toolName}"`).first();
+  // Try to find and click the tool within the project's tools section
+  const toolLocator = page.locator(
+    `a:has-text("${toolName}"), button:has-text("${toolName}"), text="${toolName}"`
+  ).first();
   if (await toolLocator.isVisible().catch(() => false)) {
     await toolLocator.click();
     await page.waitForTimeout(3000);
   } else {
-    logger.warn('Tool not found in gallery, trying direct URL');
+    logger.warn('Tool not found in sidebar, trying direct URL');
     const toolSlug = toolName.toLowerCase().replace(/\s+/g, '-');
     await page.goto(`https://labs.google/fx/tools/flow/tools/${toolSlug}`, {
       waitUntil: 'networkidle',
@@ -76,7 +64,7 @@ export async function handleOpenTool(args) {
     await page.waitForTimeout(2000);
   }
 
-  const elements = await detectPageElements();
+  const elements = await detectPageElements(page);
   return {
     status: 'opened',
     tool: toolName,

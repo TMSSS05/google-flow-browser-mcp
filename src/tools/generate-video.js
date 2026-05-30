@@ -3,7 +3,9 @@ import { getPage } from '../browser/connect.js';
 import { jobQueue } from '../queue/job-queue.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { takeScreenshot } from '../utils/screenshots.js';
+import { detectPageElements } from '../browser/safe-actions.js';
 import { prepareDownload, findNewFiles, saveMetadata } from '../utils/file-manager.js';
+import { ensureProjectInContext, navigateToSidebar } from '../navigation/project-navigator.js';
 import { get } from '../utils/config.js';
 import fs from 'fs';
 import path from 'path';
@@ -13,7 +15,6 @@ function selectVideoModel(requested) {
   if (!requested || requested === 'auto') {
     return 'Veo 3.1 - Fast';
   }
-  // Smart selection
   if (requested === 'quality' || requested === 'premium') return 'Veo 3.1 - Quality';
   if (requested === 'fast' || requested === 'speed') return 'Veo 3.1 - Fast';
   if (requested === 'lite' || requested === 'test') return 'Veo 3.1 - Lite';
@@ -34,21 +35,19 @@ export async function handleGenerateVideo(args) {
     useScene: args.use_scene,
     references: args.references,
     ingredients: args.ingredients,
+    project_name: args.project_name,
+    campaign: args.campaign,
   });
 
   try {
     jobQueue.startJob(job.id);
     const page = getPage();
 
-    // Navigate to Flow if not there
-    const currentUrl = page.url();
-    if (!currentUrl.includes('labs.google')) {
-      await page.goto(get('flowUrl', 'https://labs.google/fx/tools/flow'), {
-        waitUntil: 'networkidle',
-        timeout: 30000,
-      });
-      await page.waitForTimeout(2000);
-    }
+    // Ensure we're in a project context
+    await ensureProjectInContext(page, {
+      name: args.project_name,
+      campaign: args.campaign,
+    });
 
     // Select model
     const model = selectVideoModel(args.model);
@@ -60,15 +59,44 @@ export async function handleGenerateVideo(args) {
     }
     logger.info('Using video model', { model });
 
-    // Select Video mode
-    logger.info('Selecting Video mode');
-    const videoLocator = page.locator('button:has-text("Video"), [role="tab"]:has-text("Video"), text=Video').first();
-    if (await videoLocator.isVisible().catch(() => false)) {
-      await videoLocator.click();
-      await page.waitForTimeout(1000);
-    } else {
-      logger.warn('Video mode button not found, continuing with current mode');
-      await takeScreenshot(page, 'video-mode-check');
+    // Try to find video UI — look for textarea, selectors, etc.
+    const elements = await detectPageElements(page);
+    logger.info('Page elements in project for video', {
+      buttons: elements.buttons.length,
+      inputs: elements.inputs.length,
+    });
+
+    // Find prompt input — try current view first, then navigate sidebar
+    let promptInput = null;
+    const promptCandidates = [
+      page.locator('textarea:visible, [contenteditable="true"]:visible').first(),
+      page.locator('textarea').first(),
+      page.locator('[contenteditable="true"]').first(),
+    ];
+
+    for (const candidate of promptCandidates) {
+      if (await candidate.isVisible().catch(() => false)) {
+        promptInput = candidate;
+        break;
+      }
+    }
+
+    if (!promptInput) {
+      logger.info('No prompt found on current view, trying sidebar navigation');
+      await navigateToSidebar(page, 'Outils');
+      await page.waitForTimeout(2000);
+
+      for (const candidate of promptCandidates) {
+        if (await candidate.isVisible().catch(() => false)) {
+          promptInput = candidate;
+          break;
+        }
+      }
+    }
+
+    if (!promptInput) {
+      await takeScreenshot(page, 'no-prompt-input-video');
+      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE, 'Could not find prompt input for video');
     }
 
     // Model selection dropdown
@@ -128,23 +156,16 @@ export async function handleGenerateVideo(args) {
     } catch { /* ok */ }
 
     // Fill prompt
-    const promptLocator = page.locator('textarea, [contenteditable="true"], input[type="text"]').first();
-    const promptInput = await promptLocator.isVisible().catch(() => false) ? promptLocator : null;
-    if (!promptInput) {
-      await takeScreenshot(page, 'no-prompt-input-video');
-      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE, 'Could not find prompt input');
-    }
     await promptInput.click();
     await promptInput.fill('');
     await page.waitForTimeout(200);
     await promptInput.type(args.prompt, { delay: 20 });
     await page.waitForTimeout(500);
 
-    // Generate (video generation is paid - just set up and report)
-    logger.info('Video generation setup complete - not clicking generate (paid feature)');
+    // Video generation is paid — setup only, no click
+    logger.info('Video generation setup complete — not clicking generate (paid feature)');
     await takeScreenshot(page, 'video-ready-to-generate');
 
-    // Return setup info without actually generating
     saveMetadata(job.id, {
       type: 'video',
       model,
@@ -165,7 +186,7 @@ export async function handleGenerateVideo(args) {
       duration,
       quantity: qty,
       prompt: args.prompt,
-      message: 'Video generation setup complete. Clicking Generate will use Flow credits. Manual confirmation required.',
+      message: 'Video generation setup complete. Manual confirmation required (uses credits).',
       screenshot: await takeScreenshot(page, 'video-ready'),
     });
 

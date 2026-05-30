@@ -5,6 +5,7 @@ outputs/
 chrome-profile-kiara/
 screenshot*.png
 config/flow.config.json
+config/flow.projects.json
 .env
 .DS_Store
 *.log
