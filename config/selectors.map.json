@@ -1,10 +1,10 @@
 {
   "_description": "UI selectors map for Google Flow. Discovered via flow_discover_ui. Update when Flow UI changes.",
-  "_lastUpdated": "2026-05-30T04:10:01.462Z",
+  "_lastUpdated": "2026-05-31T02:45:06.652Z",
   "main": {
     "url": "https://labs.google/fx/fr/tools/flow",
     "title": "Flow",
-    "discoveredAt": "2026-05-30T04:09:33.811Z",
+    "discoveredAt": "2026-05-31T02:45:06.652Z",
     "selectors": {
       "buttons": [
         {
@@ -168,9 +168,9 @@
       ],
       "ratioTexts": [
         "Cinematic realism, powerful editing, world knowledge: try our latest video generation model! For a limited time, explore the new model for 50% fewer credits. Ends 6/1.",
-        "30 mai, 06:08",
-        "30 mai, 06:04",
-        "30 mai, 06:03"
+        "31 mai, 04:44",
+        "31 mai, 04:32",
+        "30 mai, 07:00"
       ]
     }
   },

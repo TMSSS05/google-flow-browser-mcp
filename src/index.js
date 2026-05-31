@@ -9,7 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from './utils/logger.js';
 import { launchKiaraProfile, navigateToFlow } from './browser/launch-profile.js';
-import { getPage, getBrowser, setBrowser } from './browser/connect.js';
+import { getPage, getBrowser, setBrowser, closeBrowser as closeBrowserConnection } from './browser/connect.js';
 import { verifyAccount as checkAccount } from './browser/account-check.js';
 import { handleFlowOpen } from './tools/flow-open.js';
 import { handleFlowStatus } from './tools/flow-status.js';
@@ -262,11 +262,7 @@ async function handleToolCall(name, args) {
     }
 
     case 'flow_disconnect': {
-      const browser = getBrowser();
-      if (browser) {
-        try { await browser.close(); } catch {}
-        setBrowser(null);
-      }
+      await closeBrowserConnection();
       return { content: [{ type: 'text', text: JSON.stringify({ status: 'disconnected' }) }] };
     }
 
