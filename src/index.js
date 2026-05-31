@@ -74,12 +74,13 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'flow_generate_image',
-    description: 'Generate an image using Google Flow Image Generation with Nano Banana or Imagen models. Fills prompt, selects model + ratio, submits to the AI Agent, waits for the Agent confirmation dialog ("Accepter"), approves generation, detects generated images in the DOM via media.getMediaUrlRedirect URLs, and downloads them through the authenticated session. Single-job queue enforced. Agent-mediated flow (not direct API call).',
+    description: '⚠️ CES IMAGES CONSOMMENT DES CRÉDITS. Par défaut (auto_confirm=false): remplit le prompt, sélectionne le modèle/ratio, prend un screenshot et retourne "ready_for_confirmation". NE clique PAS sur Generate. Quand auto_confirm=true: vérifie d\'abord que l\'interface est bien en mode IMAGE (pas Vidéo), que le modèle est un modèle image, prend un screenshot de vérification, PUIS clique Generate, attend les images et les télécharge. NAN/BANANA modèles image seulement.',
     inputSchema: {
       type: 'object',
       properties: {
         prompt: { type: 'string', description: 'The text prompt for image generation.' },
         model: { type: 'string', description: 'Model to use: Nano Banana Pro, Nano Banana 2, or Imagen 4.', default: 'Nano Banana 2' },
+        auto_confirm: { type: 'boolean', description: '⚠️ CRÉDITS. Si false (défaut): prépare seulement, ne consomme rien. Si true: vérifie que le mode Image est actif, PUIS clique Generate (consomme des crédits).', default: false },
         ratio: { type: 'string', description: 'Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4.', default: '1:1' },
         reference_images: { type: 'array', items: { type: 'string' }, description: 'Paths to reference images (optional).' },
         brand: { type: 'string', description: 'Brand context for automatic model selection: premium, standard.' },

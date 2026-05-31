@@ -424,8 +424,12 @@ export async function switchToImageMode(page) {
     }
   }
 
-  logger.warn('Could not switch to Image mode; proceeding with current mode');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(500);
-  return false;
+  await takeScreenshot(page, 'switch-to-image-mode-failed');
+  throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+    'IMPOSSIBLE de passer en mode Image. Le bouton de mode Vidéo est introuvable ou ' +
+    'l\'option Image est absente. Génération annulée pour éviter une génération vidéo ' +
+    'payante accidentelle. Vérifie manuellement l\'interface Google Flow.');
+
 }

@@ -28,10 +28,12 @@ function selectRatio(requested) {
 }
 
 export async function handleGenerateImage(args) {
+  const autoConfirm = args.auto_confirm === true;
   const job = jobQueue.createJob('image_generation', {
     prompt: args.prompt,
     model: args.model || 'auto',
     ratio: args.ratio || '16:9',
+    auto_confirm: autoConfirm,
     quantity: args.quantity || 1,
     outputFolder: args.output_folder,
     useCharacter: args.use_character,
@@ -62,6 +64,20 @@ export async function handleGenerateImage(args) {
     }
     logger.info('Using model', { model });
 
+    // 🛡️ SAFETY: Verify model is an IMAGE model, NOT a video model
+    const imageModels = get('imageModels', {});
+    const videoModels = get('videoModels', {});
+    if (!imageModels[model]) {
+      throw new FlowError(ErrorCodes.MODEL_NOT_AVAILABLE,
+        `🚨 BLOCAGE SÉCURITÉ: "${model}" est un modèle VIDÉO, pas IMAGE. ` +
+        `Utiliser flow_generate_video pour les vidéos. Modèles image: ${Object.keys(imageModels).join(', ')}`);
+    }
+    if (videoModels[model]) {
+      throw new FlowError(ErrorCodes.MODEL_NOT_AVAILABLE,
+        `🚨 BLOCAGE SÉCURITÉ: "${model}" est aussi un modèle VIDÉO. ` +
+        `Refus de générer pour éviter des crédits vidéo. Modèles image: ${Object.keys(imageModels).join(', ')}`);
+    }
+
     // STEP 3: Ratio selection
     const ratio = selectRatio(args.ratio);
     if (!ratio) {
@@ -76,8 +92,27 @@ export async function handleGenerateImage(args) {
       inputs: elements.inputs.length,
     });
 
-    // Switch from Video mode to Image mode if needed
-    await switchToImageMode(page);
+    // 🛡️ SAFETY: Force switch to Image mode — throws FlowError if impossible
+    // (prevents accidental video generation which consumes paid credits)
+    const imageModeOk = await switchToImageMode(page);
+    if (!imageModeOk) {
+      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+        '🚨 BLOCAGE SÉCURITÉ: switchToImageMode a échoué sans lever d\'erreur. ' +
+        'Refus de continuer pour éviter une génération vidéo payante accidentelle.');
+    }
+
+    // 🛡️ SAFETY: Double-check that UI is NOT in Video mode
+    const uiStillShowsVideo = await page.evaluate(() => {
+      const btn = Array.from(document.querySelectorAll('button'))
+        .find(b => b.textContent.includes('Vidéo') && b.offsetParent !== null);
+      return !!btn;
+    }).catch(() => false);
+    if (uiStillShowsVideo) {
+      await takeScreenshot(page, 'safety-video-mode-detected');
+      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+        '🚨 BLOCAGE SÉCURITÉ: L\'interface est encore en mode Vidéo après switchToImageMode. ' +
+        'Génération annulée. Vérifie manuellement l\'interface Google Flow.');
+    }
 
     // STEP 5: Find the prompt input (contenteditable div at bottom toolbar)
     let promptInput = null;
@@ -120,9 +155,31 @@ export async function handleGenerateImage(args) {
     logger.info('Prompt filled', { promptLength: args.prompt.length });
     await page.waitForTimeout(500);
 
-    // STEP 7: Click the generate button (arrow_forwardCréer)
-    // IMPORTANT: Must use normal click() NOT { force: true } — force bypasses Radix/React
-    // event handlers that submit the prompt to the generation engine
+    // ⚠️ STEP 7: DECISION POINT — auto_confirm determines if we click Generate
+    if (!autoConfirm) {
+      // SAFE MODE: Setup only, no click. Return "ready_for_confirmation".
+      const setupScreenshot = await takeScreenshot(page, 'image-ready-for-confirmation');
+      const result = {
+        status: 'ready_for_confirmation',
+        type: 'image',
+        message: '✅ Prompt, modèle et ratio sont prêts. Aucun crédit consommé. ' +
+          'Pour générer et consommer des crédits, rappelle avec auto_confirm=true.',
+        model_used: model,
+        ratio,
+        prompt: args.prompt,
+        account: get('expectedAccount'),
+        screenshot: setupScreenshot,
+        jobId: job.id,
+      };
+      jobQueue.completeJob(job.id, result);
+      return result;
+    }
+
+    // 🛡️ SAFETY: Pre-generation screenshot verification
+    logger.info('⚠️ auto_confirm=true — vérifications de sécurité avant clic Generate');
+    const preGenScreenshot = await takeScreenshot(page, 'pre-generate-verification');
+
+    // STEP 8: Find generate button
     const generateBtnLocator = page.locator(
       'button:has-text("arrow_forward"), ' +
       'button:has-text("Generate")'
@@ -139,7 +196,7 @@ export async function handleGenerateImage(args) {
       throw new FlowError(ErrorCodes.GENERATION_BUTTON_DISABLED, 'Generate button is disabled');
     }
 
-    // STEP 8: Prepare output directory
+    // STEP 9: Prepare output directory
     const outputDir = args.output_folder || prepareDownload('image', model, job.id).dir;
     if (args.output_folder) {
       if (!fs.existsSync(args.output_folder)) {
@@ -147,11 +204,11 @@ export async function handleGenerateImage(args) {
       }
     }
 
-    // STEP 9: Click generate
-    logger.info('Clicking Generate');
+    // STEP 10: Click generate ⚠️ CRÉDITS SERONT CONSOMMÉS
+    logger.info('⚠️⚠️⚠️ Cliquant Generate — des crédits vont être consommés');
     await generateBtnLocator.click();
 
-    // STEP 10: Handle two possible generation flows:
+    // STEP 11: Handle two possible generation flows:
     //   A) Agent-mediated: Agent asks "Accepter?" before generating (when switching modes)
     //   B) Direct: generation starts immediately (most common)
     // Try Agent first (short wait), fall through to direct if not detected
@@ -176,8 +233,7 @@ export async function handleGenerateImage(args) {
 
     logger.info('Generation flow', { mode: flowMode });
 
-    // STEP 11: Wait for images to appear in the DOM
-    // Images appear as <img> with src via media.getMediaUrlRedirect trpc endpoint
+    // STEP 12: Wait for images to appear in the DOM
     logger.info('Waiting for generated images...');
     let generatedImageUuids = [];
     const genTimeoutMs = get('generationTimeoutMs', 120000);
@@ -226,7 +282,7 @@ export async function handleGenerateImage(args) {
         'Check the Flow project content library.');
     }
 
-    // STEP 12: Download generated images via authenticated session
+    // STEP 13: Download generated images via authenticated session
     logger.info('Downloading generated images', { count: generatedImageUuids.length });
     const downloadedFiles = [];
 
@@ -263,6 +319,7 @@ export async function handleGenerateImage(args) {
       type: 'image',
       model,
       ratio,
+      auto_confirm: true,
       quantity: args.quantity || 1,
       prompt: args.prompt,
       files: downloadedFiles,
@@ -279,6 +336,7 @@ export async function handleGenerateImage(args) {
       prompt: args.prompt,
       files: downloadedFiles,
       image_count: downloadedFiles.length,
+      credits_consumed: true,
     });
 
     return jobQueue.getJob(job.id).result;
