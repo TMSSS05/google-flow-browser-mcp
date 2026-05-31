@@ -377,50 +377,89 @@ export async function getProjectContextInfo(page) {
 
 /**
  * Switch the project's bottom toolbar from Video mode to Image mode.
- * The mode selector shows "Vidéo · 6s" by default; we click it
- * and select "Image" from the dropdown.
- * Returns true if Image mode is confirmed active.
+ * 
+ * The Flow UI has TWO levels:
+ *   1. Content-type tabs: "Image" | "Vidéo" | "Ingrédients" (role="tab")
+ *   2. Within Vidéo tab: a dropdown for duration (6s) and ratio (x2)
+ * 
+ * We click the Image tab directly to switch to Image mode.
+ * The Image tab has role="tab" and id ending in "-trigger-IMAGE".
  */
 export async function switchToImageMode(page) {
   logger.info('Checking current generation mode...');
 
-  // Check current mode - if it already shows something other than Vidéo, we're good
-  const currentMode = await page.evaluate(() => {
+  const currentImageTab = await page.evaluate(() => {
+    const imageTab = document.querySelector('button[role="tab"][id*="trigger-IMAGE"]');
+    if (imageTab) return imageTab.getAttribute('aria-selected');
     const btn = Array.from(document.querySelectorAll('button'))
-      .find(b => (b.textContent.includes('Vidéo') || b.textContent.includes('Image')) &&
-                 b.offsetParent !== null);
-    return btn ? btn.textContent.trim().substring(0, 30) : null;
+      .find(b => b.textContent.includes('Image') && b.offsetParent !== null);
+    return btn ? btn.textContent.trim().substring(0, 20) : null;
   }).catch(() => null);
 
-  if (currentMode && currentMode.includes('Image')) {
+  if (currentImageTab === 'true') {
     logger.info('Already in Image mode');
     return true;
   }
 
-  if (!currentMode || !currentMode.includes('Vidéo')) {
-    logger.warn('Could not determine current mode, trying to find mode selector');
+  const imageTab = page.locator('button[role="tab"][id*="trigger-IMAGE"]').first();
+  if (await imageTab.isVisible().catch(() => false)) {
+    logger.info('Clicking Image tab to switch to Image mode');
+
+    const isDisabled = await imageTab.getAttribute('aria-disabled').catch(() => null);
+    if (isDisabled === 'true') {
+      logger.warn('Image tab is disabled');
+    } else {
+      await imageTab.click();
+      await page.waitForTimeout(2000);
+
+      const verifyImage = await page.evaluate(() => {
+        const tab = document.querySelector('button[role="tab"][id*="trigger-IMAGE"]');
+        return tab ? tab.getAttribute('aria-selected') : 'not-found';
+      }).catch(() => 'error');
+
+      if (verifyImage === 'true') {
+        logger.info('Successfully switched to Image mode');
+        return true;
+      }
+
+      logger.warn('First click did not switch, retrying...');
+      await imageTab.click();
+      await page.waitForTimeout(2000);
+
+      const verifyAgain = await page.evaluate(() => {
+        const tab = document.querySelector('button[role="tab"][id*="trigger-IMAGE"]');
+        return tab ? tab.getAttribute('aria-selected') : 'not-found';
+      }).catch(() => 'error');
+
+      if (verifyAgain === 'true') {
+        logger.info('Switched to Image mode on retry');
+        return true;
+      }
+    }
   }
 
-  // Strategy 1: Click the mode button (Vidéo/Image) and select Image from dropdown
-  // The dropdown is a Radix UI menu with role="tab" items for Image/Video/ratios/durations
-  const modeButton = page.locator('button', { hasText: 'Vidéo' }).first();
-  if (await modeButton.isVisible().catch(() => false)) {
-    logger.info('Clicking mode selector button to change from Video to Image');
-    await modeButton.click();
+  logger.info('Trying Vidéo dropdown fallback...');
+  const videoButton = page.locator('button:has-text("Vidéo")').first();
+  if (await videoButton.isVisible().catch(() => false)) {
+    await videoButton.click();
     await page.waitForTimeout(1500);
 
-    // Look for Image option in the dropdown menu — items have role="tab" not role="menuitem"
-    // The Image tab has text "imageImage" and id containing "-trigger-IMAGE"
-    const imgTab = page.locator('[id*="trigger-IMAGE"], [role="tab"]:has-text("image")').first();
-    if (await imgTab.isVisible().catch(() => false)) {
-      await imgTab.click();
+    const imgOption = page.locator('[role="menuitem"]:has-text("Image"), [id*="trigger-IMAGE"]').first();
+    if (await imgOption.isVisible().catch(() => false)) {
+      await imgOption.click();
       await page.waitForTimeout(1500);
-      logger.info('Switched to Image mode');
-
-      // Close the Radix dropdown overlay that remains open after selection
+      logger.info('Switched to Image mode via dropdown');
       await page.keyboard.press('Escape');
       await page.waitForTimeout(500);
-      return true;
+
+      const vf = await page.evaluate(() => {
+        const t = document.querySelector('button[role="tab"][id*="trigger-IMAGE"]');
+        return t ? t.getAttribute('aria-selected') : null;
+      }).catch(() => null);
+
+      if (vf === 'true') {
+        return true;
+      }
     }
   }
 

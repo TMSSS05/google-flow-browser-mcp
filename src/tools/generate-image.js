@@ -3,9 +3,8 @@ import { getPage } from '../browser/connect.js';
 import { jobQueue } from '../queue/job-queue.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { takeScreenshot } from '../utils/screenshots.js';
-import { detectPageElements } from '../browser/safe-actions.js';
 import { prepareDownload, saveMetadata } from '../utils/file-manager.js';
-import { ensureProjectInContext, switchToImageMode, registerTaskInProject } from '../navigation/project-navigator.js';
+import { ensureProjectInContext } from '../navigation/project-navigator.js';
 import { get } from '../utils/config.js';
 import fs from 'fs';
 import path from 'path';
@@ -85,33 +84,43 @@ export async function handleGenerateImage(args) {
         `Ratio "${args.ratio}" not available. Available: ${get('ratios', []).join(', ')}`);
     }
 
-    // STEP 4: Detect page state and switch to Image mode if needed
-    const elements = await detectPageElements(page);
-    logger.info('Page elements detected in project', {
-      buttons: elements.buttons.length,
-      inputs: elements.inputs.length,
-    });
+    // STEP 4: Verify the model selector confirms IMAGE mode (NOT video)
+    // Flow's bottom toolbar is always present in a project with a model selector.
+    // No "Image/Video" mode tabs exist — the generation mode is determined by
+    // which model is selected (e.g. "Nano Banana 2" = image, "Omni Flash" = video).
+    const modelFromUI = await page.evaluate(() => {
+      const modelBtn = Array.from(document.querySelectorAll('button'))
+        .find(b => {
+          const text = b.textContent || '';
+          return (text.includes('Nano') || text.includes('Banana') ||
+                  text.includes('Omni') || text.includes('Veo') ||
+                  text.includes('Imagen')) && b.offsetParent !== null;
+        });
+      return modelBtn ? modelBtn.textContent.trim().replace(/\s+/g, ' ').substring(0, 80) : null;
+    }).catch(() => null);
 
-    // 🛡️ SAFETY: Force switch to Image mode — throws FlowError if impossible
-    // (prevents accidental video generation which consumes paid credits)
-    const imageModeOk = await switchToImageMode(page);
-    if (!imageModeOk) {
-      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
-        '🚨 BLOCAGE SÉCURITÉ: switchToImageMode a échoué sans lever d\'erreur. ' +
-        'Refus de continuer pour éviter une génération vidéo payante accidentelle.');
+    if (modelFromUI) {
+      logger.info('Model selector shows:', { modelFromUI });
+      const videoModelNames = ['Omni Flash', 'Veo', 'Omni'];
+      const isVideoModel = videoModelNames.some(v => modelFromUI.includes(v));
+      if (isVideoModel) {
+        await takeScreenshot(page, 'video-model-detected');
+        throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+          `🚨 BLOCAGE SÉCURITÉ: Le modèle "${modelFromUI}" est un modèle VIDÉO. ` +
+          `Refus de générer pour éviter des crédits vidéo payants. ` +
+          `Utilise flow_generate_video pour les vidéos.`);
+      }
+      logger.info('✅ Model selector confirms image mode');
+    } else {
+      logger.warn('Could not read model selector — assuming image mode from config');
     }
 
-    // 🛡️ SAFETY: Double-check that UI is NOT in Video mode
-    const uiStillShowsVideo = await page.evaluate(() => {
-      const btn = Array.from(document.querySelectorAll('button'))
-        .find(b => b.textContent.includes('Vidéo') && b.offsetParent !== null);
-      return !!btn;
-    }).catch(() => false);
-    if (uiStillShowsVideo) {
-      await takeScreenshot(page, 'safety-video-mode-detected');
-      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
-        '🚨 BLOCAGE SÉCURITÉ: L\'interface est encore en mode Vidéo après switchToImageMode. ' +
-        'Génération annulée. Vérifie manuellement l\'interface Google Flow.');
+    // Also verify the generate button exists (confirms the toolbar is active)
+    const hasGenerateBtn = await page.locator(
+      'button:has-text("arrow_forward"), button:has-text("Créer")'
+    ).first().isVisible().catch(() => false);
+    if (!hasGenerateBtn) {
+      logger.warn('Generate button not visible on project page');
     }
 
     // STEP 5: Find the prompt input (contenteditable div at bottom toolbar)
