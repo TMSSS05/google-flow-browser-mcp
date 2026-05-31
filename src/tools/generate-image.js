@@ -143,13 +143,9 @@ export async function handleGenerateImage(args) {
 
     if (!promptInput) {
       await takeScreenshot(page, 'no-prompt-input');
-      const inputDetails = elements.inputs.map(i =>
-        i.placeholder || i.ariaLabel || i.name || 'unnamed'
-      ).filter(Boolean);
       throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
         'Could not find prompt input field inside the project. ' +
-        'The Flow UI may have changed. Available inputs: ' +
-        (inputDetails.length ? inputDetails.join(', ') : 'none detected'),
+        'The Flow UI may have changed. Expected [contenteditable] or textarea.'
       );
     }
 
