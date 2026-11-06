@@ -1,0 +1,1697 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hat Studio</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1c1c1a; --muted: #6b6b66;
+    --border: #e2e2dc; --accent: #2f6fde; --accent-soft: #e8f0fd; --accent-text: #fff;
+    --warn: #b4530a; --warn-bg: #fff4e5; --ok: #1d7a3e; --ok-bg: #e7f5ec; --err: #b42318; --err-bg: #fdecea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1e1e1c; --text: #ecece8; --muted: #9a9a93;
+      --border: #33332f; --accent: #5b8ff0; --accent-soft: #1f2a40; --accent-text: #fff;
+      --warn: #f0a35b; --warn-bg: #2e2216; --ok: #5cc884; --ok-bg: #16281d; --err: #f08b80; --err-bg: #2e1715;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  [hidden] { display: none !important; }
+
+  /* Desktop: one screen tall, each column scrolls on its own */
+  main { padding: 16px 24px; height: 100vh; display: flex; flex-direction: column; }
+  header { flex: none; display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; }
+  nav { display: flex; gap: 4px; }
+  nav a { padding: 5px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 14px; }
+  nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .status { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--ok); }
+  .layout { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; }
+  .col { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .scroll { flex: 0 1 auto; overflow-y: auto; min-height: 0; }
+  .col-results .panel { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+  @media (max-width: 900px) {
+    main { height: auto; }
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    .col, .scroll, .col-results .panel { height: auto; overflow: visible; }
+  }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -4px 0 14px; }
+  .tab { padding: 8px 14px; border: none; background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin: 0 0 8px; }
+  .section { margin-bottom: 16px; }
+  .row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .link { background: none; border: none; padding: 0; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
+
+  /* Profile picker cards */
+  .pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 600px) { .pickers { grid-template-columns: 1fr; } }
+  .cards { display: flex; gap: 8px; flex-wrap: wrap; }
+  .card {
+    width: 104px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); padding: 0; overflow: hidden;
+    cursor: pointer; text-align: left; font: inherit; color: var(--text);
+  }
+  .card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .card img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .card span { display: block; padding: 4px 7px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card.add { display: grid; place-items: center; aspect-ratio: auto; min-height: 126px; color: var(--accent); border-style: dashed; font-size: 13px; text-align: center; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .chip .check { display: inline-block; width: 1em; }
+  .options-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+
+  /* Per-group mix mode (rotate / all) next to each group title */
+  .group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; min-height: 26px; }
+  .group-head .section-title { margin: 0; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 2px; background: var(--bg); }
+  .seg button { border: none; background: none; padding: 2px 9px; border-radius: 999px; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .seg button:disabled { cursor: default; opacity: .55; }
+  .mix-note { margin: -4px 0 8px; font-size: 12px; color: var(--accent); }
+  .seg button[aria-checked="true"] { background: var(--panel); color: var(--accent); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+
+  /* Custom options: removable chip + inline "add" form */
+  .chip.custom { padding-right: 4px; }
+  .chip .del { margin-left: 4px; padding: 0 5px; border-radius: 50%; color: var(--muted); }
+  .chip .del:hover { background: var(--err-bg); color: var(--err); }
+  .chip.add { border-style: dashed; color: var(--accent); }
+  .add-form { display: grid; gap: 6px; margin-top: 8px; padding: 10px; border: 1px dashed var(--accent); border-radius: 10px; background: var(--bg); }
+  .add-form input, .add-form textarea { font-size: 13px; padding: 6px 8px; }
+  .add-form textarea { min-height: 52px; }
+  .add-form .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .add-form .row .btn { margin-left: auto; }
+  .shot-list { margin: 8px 0 0; padding-left: 22px; font-size: 13px; color: var(--muted); max-height: 160px; overflow-y: auto; }
+  .warn-text { color: var(--warn); }
+  @media (max-width: 700px) { .options-grid { grid-template-columns: 1fr; } }
+
+  details.prompt-preview summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  details.prompt-preview pre { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 8px 0 0; }
+
+  /* Action bar pinned at the bottom of the left column */
+  .action-bar { flex: none; display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+  .action-bar label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .summary { font-size: 14px; }
+  .summary b { color: var(--text); }
+  .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  select, input[type=text], textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  textarea { width: 100%; min-height: 64px; resize: vertical; }
+  input[type=text] { width: 100%; }
+  input:focus, textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.btn { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+  button.btn.small { padding: 5px 10px; font-size: 13px; }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.btn.danger { color: var(--err); }
+  button:disabled { opacity: .5; cursor: progress; }
+
+  /* Profile editor */
+  .editor { display: grid; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .slots { display: flex; gap: 10px; flex-wrap: wrap; }
+  .slot {
+    position: relative; width: 120px; height: 120px; border: 1.5px dashed var(--border); border-radius: 10px; background: var(--bg);
+    cursor: pointer; overflow: hidden; display: grid; place-items: center; text-align: center; font-size: 12px; color: var(--muted); padding: 6px;
+  }
+  .slot:hover, .slot:focus-visible, .slot.drag { border-color: var(--accent); outline: none; }
+  .slot.filled { border-style: solid; padding: 0; }
+  .slot b { display: block; color: var(--text); font-size: 13px; }
+  .slot .plus { display: block; font-size: 20px; color: var(--accent); line-height: 1; }
+  .slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .slot .x { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgb(0 0 0 / .6); color: #fff; font-size: 15px; line-height: 24px; padding: 0; cursor: pointer; }
+  .slot .tag { position: absolute; left: 5px; bottom: 5px; padding: 1px 7px; border-radius: 999px; background: rgb(0 0 0 / .6); color: #fff; font-size: 11px; }
+  .slot.busy::after { content: "Đang tải…"; position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / .45); color: #fff; }
+  .editor-actions { display: flex; gap: 8px; }
+  .hint { font-size: 13px; color: var(--muted); margin: 0; }
+
+  /* Results */
+  .msg { margin-bottom: 14px; padding: 10px 12px; border-radius: 8px; font-size: 14px; white-space: pre-wrap; }
+  .msg.info { background: var(--bg); border: 1px solid var(--border); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); }
+  .msg.err { background: var(--err-bg); color: var(--err); }
+  .msg img { display: block; max-width: 100%; margin-top: 8px; border-radius: 6px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .shot { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); }
+  .shot .thumb { aspect-ratio: 9 / 16; display: grid; place-items: center; font-size: 13px; color: var(--muted); background: var(--bg); }
+  .shot .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shot .meta { padding: 6px 8px; font-size: 12px; display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+  .badge.pending { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+  .badge.running { background: var(--accent-soft); color: var(--accent); }
+  .badge.done { background: var(--ok-bg); color: var(--ok); }
+  .badge.error, .badge.cancelled { background: var(--err-bg); color: var(--err); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+  .gallery .tile { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+  .gallery a { display: block; }
+  .gallery img { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; }
+  /* Download button on top of each image */
+  .tile, .shot .thumb { position: relative; }
+  .dl { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 8px; border: 0; padding: 0;
+        background: rgb(0 0 0 / .55); color: #fff; font-size: 15px; cursor: pointer; opacity: .85; }
+  .dl:hover, .dl:focus-visible { opacity: 1; background: var(--accent); }
+  /* Multi-select: checkbox top-left of each image, sticky bar with the selection */
+  .pick { position: absolute; top: 6px; left: 6px; width: 30px; height: 30px; display: grid; place-items: center;
+          border-radius: 8px; background: rgb(0 0 0 / .45); cursor: pointer; z-index: 1; }
+  .pick input { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--accent); }
+  .is-selected { outline: 3px solid var(--accent); outline-offset: -3px; }
+  .selbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding: 8px 10px; margin-bottom: 12px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--accent); font-size: 14px; }
+  .selbar .grow { flex: 1; }
+  .selbar[hidden] { display: none; }
+  /* Image → video dialog */
+  dialog.vdlg { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); border: 1px solid var(--border); border-radius: 14px;
+                padding: 0; overflow: auto; background: var(--panel); color: var(--text); box-shadow: 0 20px 60px rgb(0 0 0 / .3); }
+  dialog.vdlg::backdrop { background: rgb(0 0 0 / .45); }
+  .vdlg form { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px; }
+  .vdlg h2 { margin: 0; font-size: 17px; }
+  .vdlg .frames { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .vdlg .frames figure { position: relative; margin: 0; flex: 0 0 64px; }
+  .vdlg .frames button.scene { position: relative; flex: 0 0 auto; padding: 0; border: 2px solid transparent; border-radius: 10px;
+                               background: none; cursor: pointer; }
+  .vdlg .frames button.scene[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .vdlg .frames button.scene img { width: 64px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 8px; display: block; }
+  .vdlg .frames button.scene .tag { position: absolute; left: 3px; bottom: 3px; background: rgb(0 0 0 / .65); color: #fff;
+                                    font-size: 11px; border-radius: 6px; padding: 0 5px; }
+  .vdlg .scene-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+  .vdlg .scene-list li { display: flex; gap: 6px; align-items: baseline; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+  .vdlg .scene-list li.on { background: var(--accent-soft); }
+  .vdlg .scene-list b { white-space: nowrap; }
+  .vdlg .scene-list .none { color: var(--warn); }
+  .vdlg .act-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .vdlg .frames img { width: 64px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); display: block; }
+  .vdlg .frames figcaption { position: absolute; top: 3px; left: 3px; background: rgb(0 0 0 / .6); color: #fff; font-size: 11px; border-radius: 6px; padding: 0 5px; }
+  .vdlg .frames .arrow { align-self: center; font-size: 20px; color: var(--muted); }
+  .vdlg .row3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+  .vdlg .modes { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+  .vdlg .modes label { display: flex; gap: 8px; align-items: center; }
+  .vdlg .modes label.off { opacity: .5; }
+  .vdlg .chip .num { display: inline-grid; place-items: center; min-width: 1.4em; height: 1.4em; margin-right: 4px; border-radius: 999px;
+                     background: var(--accent); color: var(--accent-text); font-size: 11px; font-weight: 700; }
+  .vdlg .vadd { display: grid; grid-template-columns: 1fr 2fr auto; gap: 6px; align-items: center; margin-top: 8px; }
+  .vdlg .vadd[hidden] { display: none; }
+  .vdlg .vadd input { font-size: 13px; padding: 6px 8px; }
+  .vdlg .vadd .btns { display: flex; gap: 6px; }
+  @media (max-width: 560px) { .vdlg .vadd { grid-template-columns: 1fr; } }
+  .vdlg .pace { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+  .vdlg .pace.warn { color: var(--warn); }
+  .vdlg .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .vdlg details { font-size: 13px; color: var(--muted); }
+  .vdlg details p { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--bg); color: var(--text); white-space: pre-wrap; }
+  .vdlg .prompt-row { display: flex; gap: 8px; align-items: flex-start; }
+  .vdlg .cost { padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); font-size: 14px; }
+  .vdlg .cost.ok { background: var(--ok-bg); border-color: transparent; }
+  .vdlg .cost img { display: block; max-width: 100%; max-height: 200px; object-fit: contain; cursor: zoom-in; margin-top: 8px; border-radius: 6px; }
+  .vdlg .foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 560px) { .vdlg .row3 { grid-template-columns: 1fr; } }
+  .shot .thumb video, .gallery video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+  .gallery video { aspect-ratio: 9 / 16; height: auto; }
+  .dl-all-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .dl-all-row .section-title { margin: 0; }
+  .empty { color: var(--muted); font-size: 14px; grid-column: 1 / -1; margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Hat Studio</h1>
+    <nav aria-label="Trang">
+      <a href="/" class="active">Bộ ảnh mũ</a>
+      <a href="/custom">Cấu hình tự do</a>
+    </nav>
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="statusText">Đang kiểm tra…</span>
+      <button class="btn" id="connectBtn" type="button">Kết nối</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="col">
+      <section class="panel scroll">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="shoot" aria-selected="true">Tạo bộ ảnh</button>
+          <button class="tab" role="tab" data-tab="characters" aria-selected="false">Nhân vật</button>
+          <button class="tab" role="tab" data-tab="products" aria-selected="false">Mũ</button>
+        </div>
+
+        <!-- ===== Tab: create a shot set ===== -->
+        <div data-panel="shoot">
+          <div class="pickers section">
+            <div>
+              <div class="row-head"><p class="section-title">Nhân vật</p><button class="link" data-goto="characters">Quản lý</button></div>
+              <div class="cards" id="charPicker"></div>
+            </div>
+            <div>
+              <div class="row-head"><p class="section-title">Mũ</p><button class="link" data-goto="products">Quản lý</button></div>
+              <div class="cards" id="productPicker"></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="row-head">
+              <p class="section-title">Pose — mỗi pose là 1 ảnh</p>
+              <span><button class="link" id="posesPopular">Chọn 4 pose phổ biến</button> · <button class="link" id="posesNone">Bỏ chọn</button></span>
+            </div>
+            <div class="chips" id="posePicker"></div>
+          </div>
+
+          <div class="options-grid section">
+            <div>
+              <div class="group-head"><p class="section-title">Bối cảnh</p><div class="seg" data-mix-group="scenes" role="radiogroup" aria-label="Cách dùng bối cảnh"></div></div>
+              <p class="mix-note" data-mix-note="scenes" hidden></p>
+              <div class="chips" id="scenePicker"></div>
+            </div>
+            <div>
+              <div class="group-head"><p class="section-title">Trang phục</p><div class="seg" data-mix-group="outfits" role="radiogroup" aria-label="Cách dùng trang phục"></div></div>
+              <p class="mix-note" data-mix-note="outfits" hidden></p>
+              <div class="chips" id="outfitPicker"></div>
+            </div>
+            <div>
+              <div class="group-head"><p class="section-title">Phong cách ảnh</p><div class="seg" data-mix-group="styles" role="radiogroup" aria-label="Cách dùng phong cách"></div></div>
+              <p class="mix-note" data-mix-note="styles" hidden></p>
+              <div class="chips" id="stylePicker"></div>
+            </div>
+          </div>
+
+          <details class="prompt-preview">
+            <summary>Xem danh sách ảnh sẽ tạo và prompt</summary>
+            <ol class="shot-list" id="shotList"></ol>
+            <pre id="promptPreview"></pre>
+          </details>
+        </div>
+
+        <!-- ===== Tabs: character / hat profiles (same editor) ===== -->
+        <div data-panel="characters" hidden></div>
+        <div data-panel="products" hidden></div>
+      </section>
+
+      <section class="panel action-bar" id="actionBar">
+        <label>Model <select id="model"></select></label>
+        <label>Tỉ lệ <select id="ratio"></select></label>
+        <div class="summary" id="summary"></div>
+        <div class="actions">
+          <button class="btn" id="prepareBtn" type="button" title="Điền pose đầu tiên vào Flow kèm ảnh tham chiếu rồi chụp màn hình — không tốn credit">Kiểm tra pose đầu (miễn phí)</button>
+          <button class="btn primary" id="generateBtn" type="button">Tạo ảnh</button>
+        </div>
+      </section>
+    </div>
+
+    <aside class="col col-results" aria-label="Kết quả">
+      <section class="panel">
+        <div class="row-head" style="margin-bottom: 12px">
+          <h2 style="font-size: 15px; margin: 0">Kết quả</h2>
+          <span>
+            <button class="btn small" id="cancelBtn" type="button" hidden>Dừng sau ảnh này</button>
+            <button class="btn small" id="refreshBtn" type="button">Làm mới</button>
+          </span>
+        </div>
+        <div class="msg" id="msg" hidden></div>
+        <div class="dl-all-row" id="batchDlRow" hidden>
+          <p class="section-title">Loạt vừa tạo</p>
+          <span><button class="btn small" id="batchPickBtn" type="button">☑ Chọn hết</button>
+          <button class="btn small" id="batchDlBtn" type="button">⬇ Tải tất cả</button></span>
+        </div>
+        <div class="shots" id="shots" hidden></div>
+        <div class="dl-all-row">
+          <p class="section-title" id="galleryTitle">Ảnh đã tạo</p>
+          <span><button class="btn small" id="galleryPickBtn" type="button" hidden>☑ Chọn hết</button>
+          <button class="btn small" id="galleryDlBtn" type="button" hidden>⬇ Tải tất cả</button></span>
+        </div>
+        <div class="gallery" id="gallery"></div>
+        <div class="dl-all-row" id="videoGalleryHead" hidden style="margin-top: 18px">
+          <p class="section-title">Video đã tạo</p>
+          <span><button class="btn small" id="videoPickBtn" type="button">☑ Chọn hết</button>
+          <button class="btn small" id="videoDlBtn" type="button">⬇ Tải tất cả</button></span>
+        </div>
+        <div class="gallery" id="videoGallery"></div>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<dialog class="vdlg" id="videoDlg" aria-labelledby="vdlgTitle">
+  <form method="dialog" id="videoForm">
+    <h2 id="vdlgTitle">🎬 Tạo video từ ảnh</h2>
+    <div class="frames" id="vFrames"></div>
+    <ol class="scene-list" id="vSceneList"></ol>
+    <div class="modes" role="radiogroup" aria-label="Kiểu video">
+      <label><input type="radio" name="vmode" value="each" checked> <span id="vEachLabel">Mỗi ảnh thành 1 video (ảnh là khung hình đầu)</span></label>
+      <label id="vPairLabel"><input type="radio" name="vmode" value="pair"> Chuyển cảnh: ảnh 1 → ảnh 2 (1 video, cần chọn đúng 2 ảnh)</label>
+    </div>
+    <div class="field">
+      <div class="act-head">
+        <span id="vActLabel">Hành động — bấm theo thứ tự muốn diễn, chọn nhiều được (bấm lại để bỏ)</span>
+        <button class="btn small" type="button" id="vCopyAll" hidden title="Dùng các hành động của cảnh đang chọn cho mọi cảnh">Chép sang mọi cảnh</button>
+      </div>
+      <div class="chips" id="vMotions"></div>
+      <div class="vadd" id="vAdd" hidden>
+        <input type="text" id="vNewLabel" placeholder="Tên (vd: Vẫy tay)" maxlength="60" aria-label="Tên hành động">
+        <input type="text" id="vNewText" placeholder="Mô tả tiếng Anh, bắt đầu bằng động từ (vd: waves at the camera)" maxlength="300" aria-label="Mô tả cho AI">
+        <span class="btns">
+          <button class="btn small" type="button" id="vNewTranslate" title="Dịch tên sang tiếng Anh">🌐</button>
+          <button class="btn small primary" type="button" id="vNewSave">Lưu</button>
+          <button class="btn small" type="button" id="vNewCancel">Huỷ</button>
+        </span>
+      </div>
+      <p class="pace" id="vPace"></p>
+    </div>
+    <div class="row2">
+      <label class="field">Máy quay <select id="vCamera"></select></label>
+      <label class="field">Nhịp độ <select id="vSpeed"></select></label>
+    </div>
+    <div class="field">
+      <span>Thêm chi tiết (tuỳ chọn — gõ tiếng Việt rồi bấm 🌐 Dịch)</span>
+      <div class="prompt-row">
+        <textarea id="vPrompt" rows="2" placeholder="vd: gió nhẹ thổi tóc, nắng chiều vàng"></textarea>
+        <button class="btn small" type="button" id="vTranslate" title="Dịch sang tiếng Anh">🌐 Dịch</button>
+      </div>
+      <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="vKeep" checked> Giữ nguyên khuôn mặt và chiếc mũ, không chữ trên video</label>
+      <label style="display:flex; gap:6px; align-items:center" title="Tắt: Flow trả video không tiếng (tránh lỗi &quot;Không tạo được âm thanh&quot;)"><input type="checkbox" id="vAudio"> Có âm thanh (AI tự tạo tiếng — đôi khi bị lỗi)</label>
+    </div>
+    <details>
+      <summary>Câu lệnh sẽ gửi cho Flow</summary>
+      <p id="vFinal"></p>
+    </details>
+    <div class="row3">
+      <label class="field">Model <select id="vModel"></select></label>
+      <label class="field">Thời lượng <select id="vDuration"></select></label>
+      <label class="field">Tỉ lệ <select id="vRatio"></select></label>
+    </div>
+    <div class="cost" id="vCost"></div>
+    <div class="foot">
+      <button class="btn" type="button" id="vClose">Đóng</button>
+      <button class="btn" type="button" id="vCheck" title="Điền video đầu tiên vào Flow và đọc số credit Flow báo — chưa tạo gì">Kiểm tra trên Flow (miễn phí)</button>
+      <button class="btn primary" type="button" id="vGo" disabled>Tạo video</button>
+    </div>
+  </form>
+</dialog>
+
+<template id="editorTpl">
+  <div class="section">
+    <p class="section-title" data-list-title></p>
+    <div class="cards" data-list></div>
+  </div>
+  <div class="editor">
+    <p class="section-title" data-editor-title></p>
+    <label class="field">Tên <input type="text" data-name></label>
+    <div class="field">
+      <label class="field"><span data-desc-label></span><textarea data-desc></textarea></label>
+      <div><button class="btn small" type="button" data-translate title="Dịch ô mô tả sang tiếng Anh bằng Google Dịch">🌐 Dịch sang tiếng Anh</button></div>
+    </div>
+    <div>
+      <p class="hint" data-slots-hint style="margin-bottom: 8px"></p>
+      <div class="slots" data-slots></div>
+    </div>
+    <div class="editor-actions">
+      <button class="btn primary" type="button" data-save>Lưu</button>
+      <button class="btn" type="button" data-new>Tạo mới</button>
+      <button class="btn danger" type="button" data-delete hidden>Xoá</button>
+    </div>
+  </div>
+</template>
+
+<script>
+const $ = id => document.getElementById(id);
+const PREFS_KEY = 'hat-studio-prefs';
+
+// ---- Shot presets (each pose = one generation). English text goes into the prompt. ----
+const POSES = [
+  { id: 'brim', label: 'Hai tay chỉnh vành mũ', framing: 'Close-up selfie from the chest up', text: 'both hands gently adjusting the brim of the hat, soft smile at the camera' },
+  { id: 'hold', label: 'Cầm mũ giới thiệu', framing: 'Chest-up shot', wear: false, text: 'holding the hat in front of the chest with both hands, the front of the hat facing the camera, presenting it' },
+  { id: 'side', label: 'Nghiêng khoe mũ', framing: 'Close-up at a three-quarter angle', text: 'head turned three-quarters to show the side of the hat, glancing back at the camera' },
+  { id: 'cheek', label: 'Chống cằm cười', framing: 'Close-up selfie', text: 'resting one cheek on a hand, big natural smile' },
+  { id: 'wink', label: 'Nháy mắt', framing: 'Close-up selfie', text: 'playful wink at the camera, one hand touching the brim' },
+  { id: 'peek', label: 'Cầm mũ cạnh mặt', framing: 'Close-up shot', wear: false, text: 'holding the hat up beside the face, peeking at the camera playfully' },
+  { id: 'glasses', label: 'Chỉnh kính', framing: 'Close-up selfie', text: 'one hand pushing up the glasses, cute expression' },
+  { id: 'walk', label: 'Toàn thân dạo phố', framing: 'Full-body shot', text: 'walking toward the camera with a casual confident stride, whole body visible' },
+  { id: 'mirror', label: 'Selfie gương', framing: 'Half-body mirror selfie', text: 'taking a mirror selfie with a phone, hat clearly visible' },
+];
+const POPULAR_POSES = ['brim', 'hold', 'side', 'wink'];
+const SCENES = [
+  { id: 'room', label: 'Phòng ngủ, ánh sáng ấm', text: 'in a cozy bedroom with warm indoor light' },
+  { id: 'cafe', label: 'Quán cà phê', text: 'in a bright café with wooden tables' },
+  { id: 'street', label: 'Phố đi bộ', text: 'on a city sidewalk in daylight' },
+  { id: 'garden', label: 'Vườn hoa, nắng', text: 'outdoors among flowers in warm golden sunlight' },
+  { id: 'shop', label: 'Cửa hàng thời trang', text: 'inside a modern clothing store' },
+  { id: 'plain', label: 'Nền trơn', text: 'against a plain light background' },
+];
+const OUTFITS = [
+  { id: 'keep', label: 'Như ảnh nhân vật', text: '' },
+  { id: 'tank', label: 'Áo ba lỗ trắng', text: 'wearing a white tank top' },
+  { id: 'tee', label: 'Áo thun trắng', text: 'wearing a plain white t-shirt' },
+  { id: 'denim', label: 'Áo khoác jean', text: 'wearing a light denim jacket' },
+  { id: 'jersey', label: 'Áo bóng chày', text: 'wearing a baseball jersey' },
+  { id: 'cami', label: 'Áo hai dây đen', text: 'wearing a black camisole top' },
+];
+const STYLES = [
+  { id: 'ugc', label: 'Selfie điện thoại', text: 'Authentic smartphone selfie look, natural soft light, realistic skin texture, candid' },
+  { id: 'studio', label: 'Chụp studio', text: 'Professional photo, soft key light, crisp detail' },
+];
+
+const PROFILE_KINDS = {
+  characters: {
+    listTitle: 'Nhân vật đã lưu', newTitle: 'Thêm nhân vật', editTitle: 'Sửa nhân vật',
+    descLabel: 'Đặc điểm cố định (tiếng Anh cho AI hiểu tốt nhất)',
+    descPlaceholder: 'VD: young Vietnamese woman, clear round glasses, wispy see-through bangs, long light-brown hair, soft natural makeup',
+    slotsHint: 'Ảnh mặt rõ nét, cùng một người. 1 ảnh là đủ dùng, 2–3 ảnh khác góc giúp giữ mặt ổn định hơn.',
+    slots: ['Mặt chính diện', 'Góc 3/4', 'Nửa người'],
+  },
+  products: {
+    listTitle: 'Mũ đã lưu', newTitle: 'Thêm mũ', editTitle: 'Sửa mũ',
+    descLabel: 'Mô tả mũ (màu, kiểu, chữ trên logo)',
+    descPlaceholder: 'VD: burgundy cotton baseball cap, curved brim, white embroidered text "COLORADO" on the front',
+    slotsHint: 'Ảnh mũ rõ nét trên nền đơn giản. Ảnh logo giúp AI giữ đúng chữ và hoạ tiết.',
+    slots: ['Chính diện', 'Mặt bên', 'Logo / chi tiết'],
+  },
+};
+
+let studio = { characters: [], products: [], presets: { poses: [], scenes: [], outfits: [], styles: [] } };
+// scenes / outfits / styles are multi-select. `mix[group]` says how each is combined with poses:
+//   'all'    → every selected value gets every pose (multiplies the shot count)
+//   'rotate' → values are spread across the shots (doesn't add shots)
+const MIX_GROUPS = ['scenes', 'outfits', 'styles'];
+let state = {
+  characterId: null, productId: null, poses: [...POPULAR_POSES],
+  scenes: ['room'], outfits: ['keep'], styles: ['ugc'],
+  mix: { scenes: 'rotate', outfits: 'rotate', styles: 'rotate' },
+};
+
+// Built-in presets + the user's own (saved on the server), per group
+const BUILTIN = { poses: POSES, scenes: SCENES, outfits: OUTFITS, styles: STYLES };
+const optionsFor = group => [...BUILTIN[group], ...(studio.presets?.[group] || [])];
+const findOption = (group, id) => optionsFor(group).find(o => o.id === id);
+const MAX_SHOTS_WARN = 12;
+let activeBatch = null;
+let pollTimer = null;
+
+// ---------- helpers ----------
+function readStore(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
+function writeStore(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } }
+function savePrefs() { writeStore(PREFS_KEY, { ...state, model: $('model').value, ratio: $('ratio').value }); }
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function showMsg(kind, text, imgUrl) {
+  const el = $('msg');
+  el.hidden = false;
+  el.className = `msg ${kind}`;
+  el.textContent = text;
+  if (imgUrl) {
+    const img = document.createElement('img');
+    img.src = imgUrl;
+    img.alt = 'Ảnh chụp màn hình Flow';
+    el.appendChild(img);
+  }
+}
+
+function fillSelect(sel, values, preferred) {
+  sel.innerHTML = '';
+  for (const v of values) { const o = document.createElement('option'); o.value = o.textContent = v; sel.appendChild(o); }
+  if (preferred !== undefined && values.map(String).includes(String(preferred))) sel.value = preferred;
+}
+
+// Which state key holds the selection of each group
+const STATE_KEY = { poses: 'poses', scenes: 'scenes', outfits: 'outfits', styles: 'styles' };
+const ADD_HINTS = {
+  poses: { label: 'VD: Cúi đầu nhìn xuống', text: 'VD: Close-up selfie, looking down shyly with one hand holding the brim' },
+  scenes: { label: 'VD: Bãi biển hoàng hôn', text: 'VD: on a beach at sunset with soft orange light' },
+  outfits: { label: 'VD: Áo len kem', text: 'VD: wearing a cream knit sweater' },
+  styles: { label: 'VD: Film cổ điển', text: 'VD: Vintage film photo look, warm grain, faded colors' },
+};
+
+/** Multi-select chips for one group, with the user's custom options removable and a "+ Thêm" form. */
+function renderGroup(group, rootId) {
+  const root = $(rootId);
+  const key = STATE_KEY[group];
+  root.innerHTML = '';
+  for (const o of optionsFor(group)) {
+    const on = state[key].includes(o.id);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (o.custom ? ' custom' : '');
+    b.setAttribute('aria-pressed', String(on));
+    b.innerHTML = `<span class="check">${on ? '✓' : '+'}</span>`;
+    b.append(o.label);
+    if (o.custom) {
+      b.title = o.text;
+      const del = document.createElement('span');
+      del.className = 'del';
+      del.setAttribute('role', 'button');
+      del.setAttribute('aria-label', `Xoá lựa chọn ${o.label}`);
+      del.textContent = '×';
+      del.onclick = async e => {
+        e.stopPropagation();
+        if (!confirm(`Xoá lựa chọn "${o.label}"?`)) return;
+        await api('/api/studio/presets/delete', { group, id: o.id }).catch(err => showMsg('err', err.message));
+        state[key] = state[key].filter(id => id !== o.id);
+        await loadStudio();
+        renderShoot();
+      };
+      b.appendChild(del);
+    }
+    b.onclick = () => {
+      // Keep at least one scene / outfit / style selected (poses may be empty)
+      if (on && group !== 'poses' && state[key].length === 1) return;
+      state[key] = on ? state[key].filter(id => id !== o.id)
+        : optionsFor(group).map(x => x.id).filter(id => id === o.id || state[key].includes(id)); // keep list order
+      renderShoot();
+    };
+    root.appendChild(b);
+  }
+
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'chip add';
+  add.textContent = '+ Thêm';
+  add.onclick = () => openAddForm(group, root);
+  root.appendChild(add);
+}
+
+function openAddForm(group, root) {
+  if (root.nextElementSibling?.classList.contains('add-form')) return;
+  const form = document.createElement('div');
+  form.className = 'add-form';
+  form.innerHTML = `
+    <input type="text" data-label maxlength="60" aria-label="Tên lựa chọn">
+    <textarea data-text maxlength="500" aria-label="Mô tả cho AI (tiếng Anh tốt nhất)"></textarea>
+    <div class="row">
+      <button type="button" class="btn small" data-translate title="Dịch sang tiếng Anh bằng Google Dịch (dịch ô mô tả, hoặc tên nếu mô tả trống)">🌐 Dịch</button>
+      ${group === 'poses' ? '<label><input type="checkbox" data-wear checked> Đang đội mũ</label>' : ''}
+      <button type="button" class="btn small" data-cancel>Huỷ</button>
+      <button type="button" class="btn small primary" data-save style="margin-left: 0">Lưu</button>
+    </div>`;
+  const labelEl = form.querySelector('[data-label]');
+  const textEl = form.querySelector('[data-text]');
+  const translateBtn = form.querySelector('[data-translate]');
+  labelEl.placeholder = ADD_HINTS[group].label;
+  textEl.placeholder = ADD_HINTS[group].text + ' — hoặc gõ tiếng Việt rồi bấm Dịch';
+
+  // Google-translate the description (or the name when it's empty) into the description box
+  const translate = async () => {
+    const source = textEl.value.trim() || labelEl.value.trim();
+    if (!source) return;
+    translateBtn.disabled = true;
+    translateBtn.textContent = 'Đang dịch…';
+    try {
+      textEl.value = (await api(`/api/translate?text=${encodeURIComponent(source)}`)).text;
+    } catch (e) {
+      showMsg('err', e.message);
+    } finally {
+      translateBtn.disabled = false;
+      translateBtn.textContent = '🌐 Dịch';
+    }
+  };
+  translateBtn.onclick = translate;
+  labelEl.addEventListener('change', () => { if (!textEl.value.trim()) translate(); });
+
+  form.querySelector('[data-cancel]').onclick = () => form.remove();
+  form.querySelector('[data-save]').onclick = async () => {
+    try {
+      if (!textEl.value.trim()) await translate();
+      const preset = await api('/api/studio/presets', {
+        group,
+        label: labelEl.value,
+        text: textEl.value,
+        wear: form.querySelector('[data-wear]')?.checked,
+      });
+      await loadStudio();
+      state[STATE_KEY[group]].push(preset.id); // select it right away
+      form.remove();
+      renderShoot();
+    } catch (e) { showMsg('err', 'Lưu lựa chọn lỗi: ' + e.message); }
+  };
+  root.after(form);
+  form.querySelector('[data-label]').focus();
+}
+
+// ---------- shoot tab ----------
+const selectedCharacter = () => studio.characters.find(c => c.id === state.characterId);
+const selectedProduct = () => studio.products.find(p => p.id === state.productId);
+
+function renderPicker(rootId, items, selectedId, onSelect, gotoTab, addLabel) {
+  const root = $(rootId);
+  root.innerHTML = '';
+  for (const item of items) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'card';
+    b.setAttribute('aria-pressed', String(item.id === selectedId));
+    b.innerHTML = '<img alt=""><span></span>';
+    b.querySelector('img').src = item.images[0];
+    b.querySelector('span').textContent = item.name;
+    b.onclick = () => onSelect(item.id);
+    root.appendChild(b);
+  }
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'card add';
+  add.textContent = addLabel;
+  add.onclick = () => openTab(gotoTab, { fresh: true });
+  root.appendChild(add);
+}
+
+/**
+ * The shots to generate: one combination of pose + scene + outfit + style each.
+ * Per group (state.mix): 'all' multiplies — every selected value gets every pose;
+ * 'rotate' spreads the selected values across the shots without adding any.
+ */
+function buildShots() {
+  const pick = (group, ids) => ids.map(id => findOption(group, id)).filter(Boolean);
+  const poses = pick('poses', state.poses);
+  const values = { scene: pick('scenes', state.scenes), outfit: pick('outfits', state.outfits), style: pick('styles', state.styles) };
+  if (!poses.length || Object.values(values).some(v => !v.length)) return [];
+
+  const groupOf = { scene: 'scenes', outfit: 'outfits', style: 'styles' };
+  const allDims = Object.keys(values).filter(d => state.mix[groupOf[d]] === 'all');
+  const rotateDims = Object.keys(values).filter(d => !allDims.includes(d));
+
+  let shots = poses.map(pose => ({ pose }));
+  for (const d of allDims) shots = shots.flatMap(s => values[d].map(v => ({ ...s, [d]: v })));
+  if (rotateDims.length) {
+    const seq = pickMixSequence(Object.fromEntries(rotateDims.map(d => [d, values[d]])), shots.length);
+    shots = shots.map((s, i) => ({ ...s, ...seq[i] }));
+  }
+  return shots;
+}
+
+/**
+ * Choose `count` combinations of the given lists (e.g. { scene: [...], outfit: [...] }) that mix
+ * well. Cycling the lists in step would always pair the same values (room+tee, street+jersey…),
+ * so: greedy picks favouring unseen value pairs and even use, with randomized tie-breaks,
+ * repeated with fixed seeds (stable preview) and the best run kept.
+ */
+function pickMixSequence(lists, count) {
+  const dims = Object.keys(lists);
+  const combos = dims.reduce((acc, d) => acc.flatMap(c => lists[d].map(v => ({ ...c, [d]: v }))), [{}]);
+  const pairKeys = c => dims.flatMap((a, i) => dims.slice(i + 1).map(b => `${a}:${c[a].id}|${b}:${c[b].id}`));
+
+  const run = seed => {
+    let s = seed * 2654435761 % 4294967296 || 1; // tiny LCG for reproducible tie-breaks
+    const rand = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296;
+    const pairs = new Set();
+    const usage = new Map();
+    let unused = [...combos];
+    const out = [];
+    while (out.length < count) {
+      if (!unused.length) unused = [...combos];
+      let best = [];
+      let bestScore = -Infinity;
+      for (const c of unused) {
+        const novel = pairKeys(c).filter(k => !pairs.has(k)).length;
+        const reuse = dims.reduce((sum, d) => sum + (usage.get(c[d].id) || 0), 0);
+        const score = novel * 100 - reuse;
+        if (score > bestScore) { best = [c]; bestScore = score; } else if (score === bestScore) best.push(c);
+      }
+      const choice = best[Math.floor(rand() * best.length)];
+      unused = unused.filter(c => c !== choice);
+      pairKeys(choice).forEach(k => pairs.add(k));
+      dims.forEach(d => usage.set(choice[d].id, (usage.get(choice[d].id) || 0) + 1));
+      out.push(choice);
+    }
+    const spread = usage.size ? Math.max(...usage.values()) - Math.min(...usage.values()) : 0;
+    return { out, score: pairs.size * 100 - spread };
+  };
+
+  let best = run(1);
+  for (let seed = 2; seed <= 60 && combos.length > 1; seed++) {
+    const r = run(seed);
+    if (r.score > best.score) best = r;
+  }
+  return best.out;
+}
+
+/** Short label for a shot: only names the parts that vary across the batch. */
+function shotLabel(shot) {
+  const parts = [shot.pose.label];
+  if (state.scenes.length > 1) parts.push(shot.scene.label);
+  if (state.outfits.length > 1) parts.push(shot.outfit.label);
+  if (state.styles.length > 1) parts.push(shot.style.label);
+  return parts.join(' · ');
+}
+
+function buildPrompt(shot) {
+  const character = selectedCharacter();
+  const product = selectedProduct();
+  if (!shot || !character || !product) return '';
+  const { pose } = shot;
+  const n = character.images.length;
+  const m = product.images.length;
+  const wears = pose.wear !== false;
+  const outfit = shot.outfit.text;
+  const scene = shot.scene.text;
+  const style = shot.style.text.replace(/\.$/, '');
+  const who = `the person from the character reference${n > 1 ? ' images' : ' image'}${character.description ? ` (${character.description})` : ''}`;
+  const hat = `the hat from the product reference${m > 1 ? ' images' : ' image'}${product.description ? ` (${product.description})` : ''}`;
+
+  return [
+    `${pose.framing || 'Photo'} for a TikTok hat review.`,
+    `Show ${who}${wears ? `, wearing ${hat}` : ''}, ${pose.text}${outfit ? `, ${outfit}` : ''}, ${scene}.`,
+    wears ? '' : `The hat being held is ${hat}.`,
+    `The first ${n === 1 ? 'attached image shows' : `${n} attached images show`} the character — keep exactly the same face, glasses, hairstyle and bangs.`,
+    `The next ${m === 1 ? 'attached image shows' : `${m} attached images show`} the hat — reproduce its exact shape, color, brim, stitching, logo and text.`,
+    `${style}.`,
+    'No added text, no watermark.',
+  ].filter(Boolean).join(' ');
+}
+
+function renderShoot() {
+  if (!studio.characters.some(c => c.id === state.characterId)) state.characterId = studio.characters[0]?.id || null;
+  if (!studio.products.some(p => p.id === state.productId)) state.productId = studio.products.at(-1)?.id || null;
+
+  renderPicker('charPicker', studio.characters, state.characterId, id => { state.characterId = id; renderShoot(); }, 'characters', '+ Thêm nhân vật');
+  renderPicker('productPicker', studio.products, state.productId, id => { state.productId = id; renderShoot(); refreshGallery(); }, 'products', '+ Thêm mũ');
+  renderGroup('poses', 'posePicker');
+  renderGroup('scenes', 'scenePicker');
+  renderGroup('outfits', 'outfitPicker');
+  renderGroup('styles', 'stylePicker');
+  renderMixToggles();
+
+  const shots = buildShots();
+  const list = $('shotList');
+  list.innerHTML = '';
+  for (const s of shots) { const li = document.createElement('li'); li.textContent = shotLabel(s); list.appendChild(li); }
+  $('promptPreview').textContent = shots.length
+    ? (buildPrompt(shots[0]) ? `Prompt ảnh 1:\n${buildPrompt(shots[0])}` : 'Chọn nhân vật và mũ trước.')
+    : 'Chưa chọn pose.';
+
+  const count = shots.length;
+  const ready = count && selectedCharacter() && selectedProduct();
+  let summary = `Sẽ tạo <b>${count} ảnh</b> · tốn credit ${count} ảnh`;
+  if (count > MAX_SHOTS_WARN) summary += ` <span class="warn-text">— nhiều, cân nhắc "Xoay vòng"</span>`;
+  $('summary').innerHTML = !selectedCharacter() ? 'Cần tạo nhân vật trước'
+    : !selectedProduct() ? 'Cần thêm mũ trước'
+    : summary;
+  $('generateBtn').textContent = count ? `Tạo ${count} ảnh` : 'Tạo ảnh';
+  const running = !!activeBatch && !activeBatch.finishedAt;
+  $('generateBtn').disabled = !ready || running;
+  $('prepareBtn').disabled = !ready || running;
+  savePrefs();
+}
+
+const MIX_MODES = [
+  { mode: 'rotate', label: 'Chia đều', tip: 'Các lựa chọn được chia đều vào các ảnh — không tăng số ảnh' },
+  { mode: 'all', label: 'Chụp đủ', tip: 'Mỗi lựa chọn được chụp với đủ mọi pose — tăng số ảnh' },
+];
+const MIX_NOUN = { scenes: 'bối cảnh', outfits: 'trang phục', styles: 'phong cách' };
+
+/** The "chia đều / chụp đủ" switch next to each group title, plus a plain-language line under it. */
+function renderMixToggles() {
+  for (const seg of document.querySelectorAll('[data-mix-group]')) {
+    const group = seg.dataset.mixGroup;
+    const n = state[group].length;
+    const single = n < 2;
+    seg.hidden = single; // with one option both modes are the same
+    seg.innerHTML = '';
+    for (const { mode, label, tip } of MIX_MODES) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(state.mix[group] === mode));
+      b.textContent = label;
+      b.title = tip;
+      b.onclick = () => { state.mix[group] = mode; renderShoot(); };
+      seg.appendChild(b);
+    }
+
+    const note = document.querySelector(`[data-mix-note="${group}"]`);
+    const noun = MIX_NOUN[group];
+    const poses = state.poses.length;
+    note.hidden = single;
+    note.textContent = state.mix[group] === 'all'
+      ? `→ Mỗi ${noun} chụp đủ ${poses} pose (gấp ${n} lần số ảnh)`
+      : `→ ${n} ${noun} được chia đều vào các ảnh`;
+  }
+}
+$('posesPopular').onclick = () => { state.poses = [...POPULAR_POSES]; renderShoot(); };
+$('posesNone').onclick = () => { state.poses = []; renderShoot(); };
+
+// ---------- tabs ----------
+const editors = {};
+function openTab(name, { fresh = false } = {}) {
+  for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
+  for (const p of document.querySelectorAll('[data-panel]')) p.hidden = p.dataset.panel !== name;
+  $('actionBar').hidden = name !== 'shoot';
+  if (editors[name] && fresh) editors[name].edit(null);
+}
+for (const t of document.querySelectorAll('.tab')) t.onclick = () => openTab(t.dataset.tab);
+for (const g of document.querySelectorAll('[data-goto]')) g.onclick = () => openTab(g.dataset.goto);
+
+// ---------- profile editor (characters + hats share one component) ----------
+async function uploadImage(file) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Chỉ nhận ảnh JPG, PNG hoặc WEBP.');
+  const res = await fetch('/api/upload', { method: 'POST', headers: { 'X-Filename': encodeURIComponent(file.name) }, body: file });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data.url;
+}
+
+function createEditor(kind) {
+  const cfg = PROFILE_KINDS[kind];
+  const root = document.querySelector(`[data-panel="${kind}"]`);
+  root.appendChild($('editorTpl').content.cloneNode(true));
+  const q = sel => root.querySelector(sel);
+  q('[data-list-title]').textContent = cfg.listTitle;
+  q('[data-desc-label]').textContent = cfg.descLabel;
+  q('[data-desc]').placeholder = cfg.descPlaceholder + ' — hoặc gõ tiếng Việt rồi bấm Dịch';
+  q('[data-translate]').onclick = async () => {
+    const btn = q('[data-translate]');
+    const source = q('[data-desc]').value.trim();
+    if (!source) { showMsg('err', 'Gõ mô tả (tiếng Việt cũng được) trước khi dịch.'); return; }
+    btn.disabled = true;
+    btn.textContent = 'Đang dịch…';
+    try {
+      q('[data-desc]').value = (await api(`/api/translate?text=${encodeURIComponent(source)}`)).text;
+    } catch (e) {
+      showMsg('err', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🌐 Dịch sang tiếng Anh';
+    }
+  };
+  q('[data-slots-hint]').textContent = cfg.slotsHint;
+
+  let current = null; // profile being edited, or null for new
+  let images = [];
+
+  function renderSlots() {
+    const slots = q('[data-slots]');
+    slots.innerHTML = '';
+    cfg.slots.forEach((label, i) => {
+      const url = images[i];
+      const slot = document.createElement('div');
+      slot.className = 'slot' + (url ? ' filled' : '');
+      slot.tabIndex = 0;
+      slot.setAttribute('role', 'button');
+      slot.setAttribute('aria-label', `Tải ảnh: ${label}`);
+      slot.innerHTML = url
+        ? `<img alt="${label}"><span class="tag">${label}</span><button type="button" class="x" aria-label="Bỏ ảnh ${label}">×</button>`
+        : `<div><span class="plus">+</span><b>${label}</b>${i === 0 ? 'bắt buộc' : 'tuỳ chọn'}</div>`;
+      if (url) slot.querySelector('img').src = url;
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/jpeg,image/png,image/webp'; input.hidden = true;
+      slot.appendChild(input);
+
+      const put = async file => {
+        if (!file) return;
+        slot.classList.add('busy');
+        try {
+          const uploaded = await uploadImage(file);
+          images[i] = uploaded;
+          images = images.filter(Boolean); // keep slots packed: image order = reference order
+          renderSlots();
+        } catch (e) { showMsg('err', 'Tải ảnh lỗi: ' + e.message); slot.classList.remove('busy'); }
+      };
+      slot.onclick = e => { if (e.target.closest('.x')) { images.splice(i, 1); renderSlots(); } else input.click(); };
+      slot.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } };
+      input.onchange = () => { put(input.files[0]); input.value = ''; };
+      slot.ondragover = e => { e.preventDefault(); slot.classList.add('drag'); };
+      slot.ondragleave = () => slot.classList.remove('drag');
+      slot.ondrop = e => { e.preventDefault(); slot.classList.remove('drag'); put(e.dataTransfer.files[0]); };
+      slots.appendChild(slot);
+    });
+  }
+
+  function renderList() {
+    const list = q('[data-list]');
+    list.innerHTML = '';
+    if (!studio[kind].length) { list.innerHTML = '<p class="empty">Chưa có.</p>'; return; }
+    for (const p of studio[kind]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'card';
+      b.setAttribute('aria-pressed', String(p.id === current?.id));
+      b.innerHTML = '<img alt=""><span></span>';
+      b.querySelector('img').src = p.images[0];
+      b.querySelector('span').textContent = p.name;
+      b.onclick = () => edit(p);
+      list.appendChild(b);
+    }
+  }
+
+  function edit(profile) {
+    current = profile;
+    images = [...(profile?.images || [])];
+    q('[data-editor-title]').textContent = profile ? cfg.editTitle : cfg.newTitle;
+    q('[data-name]').value = profile?.name || '';
+    q('[data-desc]').value = profile?.description || '';
+    q('[data-delete]').hidden = !profile;
+    renderSlots();
+    renderList();
+  }
+
+  q('[data-new]').onclick = () => edit(null);
+  q('[data-save]').onclick = async () => {
+    try {
+      const saved = await api(`/api/studio/${kind}`, {
+        id: current?.id, name: q('[data-name]').value, description: q('[data-desc]').value, images,
+      });
+      await loadStudio();
+      if (kind === 'characters') state.characterId = saved.id; else state.productId = saved.id;
+      edit(studio[kind].find(p => p.id === saved.id));
+      renderShoot();
+      refreshGallery();
+      showMsg('info', `✅ Đã lưu "${saved.name}".`);
+    } catch (e) { showMsg('err', 'Lưu lỗi: ' + e.message); }
+  };
+  q('[data-delete]').onclick = async () => {
+    if (!current || !confirm(`Xoá "${current.name}"? Ảnh đã tạo vẫn được giữ.`)) return;
+    await api('/api/studio/delete', { kind, id: current.id }).catch(e => showMsg('err', e.message));
+    await loadStudio();
+    edit(null);
+    renderShoot();
+    refreshGallery();
+  };
+
+  return { edit, renderList };
+}
+
+async function loadStudio() {
+  studio = await api('/api/studio');
+  for (const e of Object.values(editors)) e.renderList();
+}
+
+// ---------- results ----------
+// ?download=1 makes the server send the file as an attachment, so the page stays put
+const fileDownloadUrl = u => u + (u.includes('?') ? '&' : '?') + 'download=1';
+function zipDownloadUrl(urls, name) {
+  const q = new URLSearchParams({ name });
+  for (const u of urls) q.append('f', u);
+  return '/api/zip?' + q;
+}
+function startDownload(href) {
+  const a = document.createElement('a');
+  a.href = href;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+function downloadAll(urls, name) {
+  if (urls.length === 1) startDownload(fileDownloadUrl(urls[0]));
+  else if (urls.length) startDownload(zipDownloadUrl(urls, name));
+}
+function dlButton(url) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'dl'; b.textContent = '⬇';
+  b.title = b.ariaLabel = 'Tải ảnh này';
+  b.onclick = e => { e.preventDefault(); e.stopPropagation(); startDownload(fileDownloadUrl(url)); };
+  return b;
+}
+const slug = s => (s || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/gi, 'd').replace(/[^\w-]+/g, '_');
+let galleryUrls = [];
+const SELBAR_ANCHOR = () => $('msg');
+
+// ---------- multi-select download ----------
+// Selected image URLs. The same image can show in two lists (batch + gallery): their boxes stay in sync.
+const selected = new Set();
+let lastPicked = null;
+function pickBox(url, container) {
+  container.dataset.url = url;
+  const label = document.createElement('label');
+  label.className = 'pick';
+  label.title = 'Chọn ảnh (Shift+bấm để chọn cả dãy)';
+  label.innerHTML = '<input type="checkbox" aria-label="Chọn ảnh này">';
+  const box = label.querySelector('input');
+  box.checked = selected.has(url);
+  container.classList.toggle('is-selected', box.checked);
+  label.onclick = e => e.stopPropagation();
+  box.onclick = e => {
+    const boxes = [...document.querySelectorAll('.pick input')];
+    // Shift+click: apply this state to every image between the last click and this one
+    if (e.shiftKey && lastPicked && boxes.includes(lastPicked)) {
+      const [a, b] = [boxes.indexOf(lastPicked), boxes.indexOf(box)].sort((x, y) => x - y);
+      for (const other of boxes.slice(a, b + 1)) setPicked(other.closest('[data-url]').dataset.url, box.checked);
+    }
+    setPicked(url, box.checked);
+    lastPicked = box;
+  };
+  return label;
+}
+function setPicked(url, on) {
+  if (on) selected.add(url); else selected.delete(url);
+  for (const el of document.querySelectorAll('[data-url]')) {
+    if (el.dataset.url !== url) continue;
+    el.classList.toggle('is-selected', on);
+    const box = el.querySelector('.pick input');
+    if (box) box.checked = on;
+  }
+  renderSelBar();
+}
+function pickAll(urls) {
+  const allOn = urls.length && urls.every(u => selected.has(u));
+  for (const u of urls) setPicked(u, !allOn);
+}
+// Forget selections whose images are no longer on screen (e.g. after switching hat)
+function pruneSelection() {
+  const shown = new Set([...document.querySelectorAll('[data-url]')].map(el => el.dataset.url));
+  for (const u of [...selected]) if (!shown.has(u)) selected.delete(u);
+  renderSelBar();
+}
+function renderSelBar() {
+  let bar = $('selBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'selBar';
+    bar.className = 'selbar';
+    bar.innerHTML = `<span class="grow">Đã chọn <b></b> ảnh</span>
+      <button class="btn small" type="button" data-act="video" title="Dùng các ảnh đã chọn làm khung hình đầu cho video">🎬 Tạo video</button>
+      <button class="btn small primary" type="button" data-act="dl">⬇ Tải đã chọn</button>
+      <button class="btn small" type="button" data-act="clear">Bỏ chọn</button>`;
+    bar.querySelector('[data-act="dl"]').onclick = () => downloadAll([...selected], 'flow-selected-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, ''));
+    bar.querySelector('[data-act="video"]').onclick = openVideoDialog;
+    bar.querySelector('[data-act="clear"]').onclick = () => { for (const u of [...selected]) setPicked(u, false); };
+    SELBAR_ANCHOR().before(bar);
+  }
+  bar.hidden = !selected.size;
+  // Only still images can be video frames
+  bar.querySelector('[data-act="video"]').disabled = ![...selected].some(isImageUrl);
+  bar.querySelector('b').textContent = selected.size;
+}
+
+async function refreshGallery() {
+  const product = selectedProduct();
+  $('galleryTitle').textContent = product ? `Ảnh đã tạo — ${product.name}` : 'Ảnh đã tạo';
+  const items = product ? await api(`/api/images?product=${encodeURIComponent(product.id)}&limit=60`).catch(() => []) : [];
+  const g = $('gallery');
+  g.innerHTML = '';
+  galleryUrls = items.map(it => it.url);
+  $('galleryDlBtn').hidden = $('galleryPickBtn').hidden = !items.length;
+  $('galleryDlBtn').textContent = `⬇ Tải tất cả (${items.length})`;
+  if (!items.length) { g.innerHTML = `<p class="empty">${product ? 'Chưa có ảnh cho mũ này.' : 'Chọn một mũ để xem ảnh.'}</p>`; pruneSelection(); return; }
+  for (const it of items) {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    const a = document.createElement('a');
+    a.href = it.url; a.target = '_blank'; a.rel = 'noopener';
+    a.innerHTML = '<img loading="lazy" alt="">';
+    a.querySelector('img').src = it.url;
+    tile.append(a, pickBox(it.url, tile), dlButton(it.url));
+    g.appendChild(tile);
+  }
+  pruneSelection();
+  refreshVideos();
+}
+
+function batchImageUrls() {
+  return (activeBatch?.items || []).flatMap(i => [...(i.images || []), ...(i.videos || [])]);
+}
+
+const isImageUrl = u => /\.(jpe?g|png|webp)$/i.test(u);
+function videoEl(url) {
+  const v = document.createElement('video');
+  Object.assign(v, { src: url, muted: true, loop: true, playsInline: true, preload: 'metadata' });
+  v.addEventListener('mouseenter', () => v.play().catch(() => {}));
+  v.addEventListener('mouseleave', () => v.pause());
+  v.addEventListener('click', () => window.open(url, '_blank', 'noopener'));
+  v.style.cursor = 'pointer';
+  return v;
+}
+
+let videoUrls = [];
+async function refreshVideos() {
+  const product = selectedProduct();
+  const items = product ? await api(`/api/videos?product=${encodeURIComponent(product.id)}&limit=40`).catch(() => []) : [];
+  videoUrls = items.map(it => it.url);
+  $('videoGalleryHead').hidden = !items.length;
+  $('videoDlBtn').textContent = `⬇ Tải tất cả (${items.length})`;
+  const g = $('videoGallery');
+  g.innerHTML = '';
+  for (const it of items) {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.append(videoEl(it.url), pickBox(it.url, tile), dlButton(it.url));
+    g.appendChild(tile);
+  }
+  pruneSelection();
+}
+
+const STATUS_LABEL = { pending: 'Chờ', running: 'Đang tạo…', done: 'Xong', error: 'Lỗi', cancelled: 'Đã dừng' };
+function renderBatch() {
+  const b = activeBatch;
+  const shots = $('shots');
+  shots.hidden = !b;
+  $('cancelBtn').hidden = !b || !!b.finishedAt || b.cancelled;
+  const batchUrls = batchImageUrls();
+  $('batchDlRow').hidden = !batchUrls.length;
+  $('batchDlBtn').textContent = `⬇ Tải tất cả (${batchUrls.length})`;
+  if (!b) return;
+  shots.innerHTML = '';
+  for (const item of b.items) {
+    const el = document.createElement('div');
+    el.className = 'shot';
+    el.innerHTML = '<div class="thumb"></div><div class="meta"><span></span><span class="badge"></span></div>';
+    const thumb = el.querySelector('.thumb');
+    if (item.videos?.[0]) {
+      thumb.append(videoEl(item.videos[0]), pickBox(item.videos[0], thumb), dlButton(item.videos[0]));
+    } else if (b.kind === 'video' && item.frame) {
+      // Still rendering: show the start frame, dimmed, with the status on top
+      thumb.innerHTML = '<img alt="" style="opacity:.45">';
+      thumb.querySelector('img').src = item.frame;
+    } else if (item.images?.[0]) {
+      thumb.innerHTML = '<a target="_blank" rel="noopener"><img alt=""></a>';
+      thumb.querySelector('a').href = item.images[0];
+      thumb.querySelector('img').src = item.images[0];
+      thumb.append(pickBox(item.images[0], thumb), dlButton(item.images[0]));
+    } else {
+      thumb.textContent = item.status === 'error' ? '⚠' : STATUS_LABEL[item.status];
+    }
+    el.querySelector('.meta span').textContent = item.label;
+    const badge = el.querySelector('.badge');
+    badge.className = `badge ${item.status}`;
+    badge.textContent = STATUS_LABEL[item.status];
+    if (item.error) el.title = item.error;
+    shots.appendChild(el);
+  }
+  const done = b.items.filter(i => i.status === 'done').length;
+  const failed = b.items.filter(i => i.status === 'error');
+  const unit = b.kind === 'video' ? 'video' : 'ảnh';
+  if (b.finishedAt) {
+    showMsg(failed.length ? 'warn' : 'info',
+      `${b.cancelled ? 'Đã dừng. ' : ''}Xong ${done}/${b.items.length} ${unit}.` +
+      (failed.length ? `\nLỗi: ${failed.map(f => `${f.label} — ${f.error}`).join('\n')}` : ''));
+  } else {
+    showMsg('info', `Đang tạo ${unit} ${done + 1}/${b.items.length}… ` +
+      (b.kind === 'video' ? '(mỗi video khoảng 1–3 phút)' : '(mỗi ảnh khoảng 30–60 giây)'));
+  }
+}
+
+async function pollBatch() {
+  clearTimeout(pollTimer);
+  if (!activeBatch) return;
+  try {
+    activeBatch = await api(`/api/batch?id=${encodeURIComponent(activeBatch.id)}`);
+  } catch (e) {
+    showMsg('err', e.message);
+    activeBatch = null;
+  }
+  renderBatch();
+  renderShoot();
+  if (activeBatch && !activeBatch.finishedAt) pollTimer = setTimeout(pollBatch, 3000);
+  else { refreshGallery(); refreshStatus(); }
+}
+
+function batchRequest(confirmGenerate) {
+  return {
+    characterId: state.characterId, productId: state.productId,
+    model: $('model').value, ratio: $('ratio').value, confirm: confirmGenerate,
+    shots: buildShots().map(s => ({ pose: s.pose.id, label: shotLabel(s), prompt: buildPrompt(s) })),
+  };
+}
+
+$('prepareBtn').onclick = async () => {
+  $('prepareBtn').disabled = $('generateBtn').disabled = true;
+  showMsg('info', 'Đang điền pose đầu tiên và ảnh tham chiếu vào Flow…');
+  try {
+    const r = await api('/api/batch', batchRequest(false));
+    showMsg('warn', `Sẵn sàng, chưa tốn credit. Flow: ${r.ui_settings} · ${r.reference_images} ảnh tham chiếu.\nKiểm tra ảnh chụp bên dưới rồi bấm "Tạo".`, r.screenshotUrl);
+  } catch (e) {
+    showMsg('err', 'Lỗi: ' + e.message);
+  } finally {
+    renderShoot();
+    refreshStatus();
+  }
+};
+
+$('generateBtn').onclick = async () => {
+  const n = buildShots().length;
+  if (!confirm(`Tạo ${n} ảnh cho "${selectedProduct().name}" với "${selectedCharacter().name}"?\nTốn credit cho ${n} ảnh.`)) return;
+  try {
+    activeBatch = await api('/api/batch', batchRequest(true));
+    renderBatch();
+    pollBatch();
+  } catch (e) {
+    showMsg('err', 'Lỗi: ' + e.message);
+  }
+};
+
+$('cancelBtn').onclick = async () => {
+  if (!activeBatch) return;
+  activeBatch = await api('/api/batch/cancel', { id: activeBatch.id }).catch(e => (showMsg('err', e.message), activeBatch));
+  renderBatch();
+};
+$('refreshBtn').onclick = refreshGallery;
+$('videoPickBtn').onclick = () => pickAll(videoUrls);
+$('videoDlBtn').onclick = () => downloadAll(videoUrls, `video_${slug(selectedProduct()?.name)}`);
+$('galleryDlBtn').onclick = () => downloadAll(galleryUrls, `hat_${slug(selectedProduct()?.name)}`);
+$('galleryPickBtn').onclick = () => pickAll(galleryUrls);
+$('batchPickBtn').onclick = () => pickAll(batchImageUrls());
+$('batchDlBtn').onclick = () => downloadAll(batchImageUrls(), `hat_${slug(selectedProduct()?.name)}_loat`);
+
+// ---------- image → video ----------
+// Actions the model can chain in one clip. `text` follows "she …" (verb phrase), so several
+// can be joined: "she first …, then …, and finally …".
+const MOTIONS = [
+  { id: 'tilt', label: 'Nghiêng đầu mỉm cười', text: 'tilts her head and smiles warmly at the camera' },
+  { id: 'brim', label: 'Chạm vành mũ', text: 'lightly touches and adjusts the brim of her cap' },
+  { id: 'turn', label: 'Xoay khoe mũ', text: 'slowly turns her head left and right to show the cap from different angles' },
+  { id: 'point', label: 'Chỉ vào mũ', text: 'points at her cap with a proud smile' },
+  { id: 'offon', label: 'Bỏ mũ ra rồi đội lại', text: 'takes the cap off, shakes out her hair, then puts the cap back on' },
+  { id: 'wink', label: 'Nháy mắt', text: 'winks playfully at the camera' },
+  { id: 'laugh', label: 'Cười tươi', text: 'laughs softly and naturally' },
+  { id: 'glasses', label: 'Chỉnh kính', text: 'pushes her glasses up with one finger' },
+  { id: 'hair', label: 'Vén tóc', text: 'tucks a strand of hair behind her ear' },
+  { id: 'wave', label: 'Vẫy tay chào', text: 'waves hello at the camera' },
+  { id: 'peace', label: 'Tạo dáng ✌', text: 'makes a peace sign next to her face' },
+  { id: 'kiss', label: 'Hôn gió', text: 'blows a kiss to the camera' },
+  { id: 'look', label: 'Nhìn xa rồi quay lại', text: 'looks away into the distance, then turns back to the camera' },
+  { id: 'spin', label: 'Xoay một vòng', text: 'does a slow full turn to show the outfit and the cap' },
+  { id: 'walk', label: 'Đi về phía camera', text: 'walks casually toward the camera' },
+];
+const CAMERAS = [
+  { id: 'selfie', label: 'Cầm tay kiểu selfie', text: 'Handheld selfie-style camera with slight natural movement.' },
+  { id: 'static', label: 'Đứng yên', text: 'Static camera on a tripod.' },
+  { id: 'pushin', label: 'Tiến chậm vào mặt', text: 'The camera slowly pushes in toward her face and cap.' },
+  { id: 'pullout', label: 'Lùi ra dần', text: 'The camera slowly pulls back to reveal more of the scene.' },
+  { id: 'orbit', label: 'Lia vòng quanh', text: 'The camera slowly orbits around her.' },
+];
+const SPEEDS = [
+  { id: 'natural', label: 'Tự nhiên', text: '' },
+  { id: 'slow', label: 'Chậm, mượt', text: 'Slow, smooth, relaxed movements.' },
+  { id: 'lively', label: 'Nhanh, vui tươi', text: 'Lively, energetic, playful pace.' },
+];
+const KEEP_TEXT = 'Keep her face and the cap design exactly as in the image. No text, no captions, no logos added.';
+// How many chained actions still look natural in a clip of this length
+const maxActionsFor = seconds => (seconds <= 4 ? 2 : seconds <= 6 ? 3 : 4);
+
+// Actions per scene (one scene = one selected image), each an ordered list of action ids
+let sceneActions = [[]];
+let activeScene = 0;
+let defaultActions = ['brim', 'tilt'];
+const curActions = () => sceneActions[activeScene] || [];
+const setCurActions = ids => { sceneActions[activeScene] = ids; };
+const isPairMode = () => document.querySelector('input[name="vmode"]:checked')?.value === 'pair';
+const allMotions = () => [...MOTIONS, ...(studio?.presets?.motions || [])];
+
+function sentence(t) {
+  t = t.trim();
+  t = t.charAt(0).toUpperCase() + t.slice(1);
+  return t && !/[.!?]$/.test(t) ? t + '.' : t;
+}
+/** "she first A, then B, and finally C" for one scene's actions ('' when none). */
+function actionPhrase(ids) {
+  const acts = ids.map(id => allMotions().find(m => m.id === id)).filter(Boolean).map(m => m.text.trim().replace(/[.!]+$/, ''));
+  if (acts.length === 0) return '';
+  if (acts.length === 1) return `she ${acts[0]}`;
+  if (acts.length === 2) return `she ${acts[0]}, then ${acts[1]}`;
+  return `she first ${acts[0]}, then ${acts.slice(1, -1).join(', then ')}, and finally ${acts.at(-1)}`;
+}
+const capital = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+function withTail(body) {
+  const extra = sentence($('vPrompt').value);
+  if (!body && !extra) return '';
+  const camera = CAMERAS.find(c => c.id === $('vCamera').value)?.text || '';
+  const speed = SPEEDS.find(x => x.id === $('vSpeed').value)?.text || '';
+  return [body, extra, camera, speed, $('vKeep').checked ? KEEP_TEXT : ''].filter(Boolean).join(' ');
+}
+
+/** One prompt per video: per image in "each" mode; one two-scene prompt in "pair" mode. */
+function buildVideoPrompts() {
+  if (isPairMode()) {
+    const [a, b] = [actionPhrase(sceneActions[0] || []), actionPhrase(sceneActions[1] || [])];
+    let body = '';
+    if (a || b) {
+      body = `Scene 1 (the first frame): ${a ? capital(a) + '.' : 'she holds the pose naturally.'} ` +
+        `Then the camera transitions smoothly into scene 2 (the last frame): ${b ? capital(b) + '.' : 'she settles into the final pose.'}`;
+    }
+    return [withTail(body)];
+  }
+  return videoFrames.map((_, i) => {
+    const phrase = actionPhrase(sceneActions[i] || []);
+    return withTail(phrase ? capital(phrase) + '.' : '');
+  });
+}
+
+function renderMotions() {
+  const box = $('vMotions');
+  box.innerHTML = '';
+  for (const m of allMotions()) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (m.custom ? ' custom' : '');
+    b.title = m.text;
+    const order = curActions().indexOf(m.id);
+    b.setAttribute('aria-pressed', String(order >= 0));
+    if (order >= 0) {
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = order + 1;
+      b.appendChild(num);
+    }
+    b.append(m.label);
+    b.onclick = () => {
+      setCurActions(order >= 0 ? curActions().filter(id => id !== m.id) : [...curActions(), m.id]);
+      renderMotions();
+      onVideoChange();
+    };
+    if (m.custom) {
+      const del = document.createElement('span');
+      del.className = 'del'; del.textContent = '×'; del.title = 'Xoá hành động này';
+      del.onclick = async e => {
+        e.stopPropagation();
+        await api('/api/studio/presets/delete', { group: 'motions', id: m.id }).catch(err => showMsg('err', err.message));
+        studio.presets.motions = (studio.presets.motions || []).filter(x => x.id !== m.id);
+        sceneActions = sceneActions.map(ids => ids.filter(id => id !== m.id));
+        renderMotions();
+        onVideoChange();
+      };
+      b.appendChild(del);
+    }
+    box.appendChild(b);
+  }
+  const add = document.createElement('button');
+  add.type = 'button'; add.className = 'chip add'; add.textContent = '+ Thêm hành động';
+  add.onclick = () => { $('vAdd').hidden = false; $('vNewLabel').focus(); };
+  box.appendChild(add);
+
+  // A pair video fits both scenes into one clip, so their actions share the time
+  const seconds = Number($('vDuration').value) || 8;
+  const max = maxActionsFor(seconds);
+  const count = isPairMode() ? (sceneActions[0]?.length || 0) + (sceneActions[1]?.length || 0) : curActions().length;
+  const pace = $('vPace');
+  pace.className = 'pace' + (count > max ? ' warn' : '');
+  pace.textContent = !curActions().length ? 'Cảnh này chưa có hành động — chỉ dùng phần "Thêm chi tiết".'
+    : count > max ? `⚠ ${count} hành động trong ${seconds} giây${isPairMode() ? ' (cả 2 cảnh)' : ''} dễ bị vội hoặc bị bỏ bớt — nên tối đa ${max}.`
+    : `${curActions().length} hành động, diễn theo thứ tự số.`;
+  renderSceneList();
+}
+
+/** Summary row per scene (click to edit that scene) and the scene-aware labels. */
+function renderSceneList() {
+  const multi = videoFrames.length > 1;
+  const list = $('vSceneList');
+  list.innerHTML = '';
+  list.hidden = !multi;
+  $('vCopyAll').hidden = !multi;
+  $('vActLabel').textContent = multi
+    ? `Hành động cho Cảnh ${activeScene + 1} — bấm theo thứ tự (bấm ảnh phía trên để đổi cảnh)`
+    : 'Hành động — bấm theo thứ tự muốn diễn, chọn nhiều được (bấm lại để bỏ)';
+  if (!multi) return;
+  videoFrames.forEach((_, i) => {
+    const li = document.createElement('li');
+    li.className = i === activeScene ? 'on' : '';
+    const names = (sceneActions[i] || []).map(id => allMotions().find(m => m.id === id)?.label).filter(Boolean);
+    li.innerHTML = '<b></b><span></span>';
+    li.querySelector('b').textContent = `Cảnh ${i + 1}${isPairMode() ? (i === 0 ? ' (đầu)' : ' (cuối)') : ''}:`;
+    const span = li.querySelector('span');
+    span.textContent = names.length ? names.join(' → ') : 'chưa có hành động';
+    if (!names.length) span.className = 'none';
+    li.onclick = () => selectScene(i);
+    list.appendChild(li);
+  });
+}
+
+function selectScene(i) {
+  activeScene = i;
+  renderVideoFrames();
+  renderMotions();
+}
+
+let videoOpts = { models: [], credits: {}, ratios: ['9:16', '16:9'] };
+let videoFrames = [];
+let videoCheck = null; // last Flow check: { key, credits, count }
+const vPrefs = readStore('hatStudio.video', {});
+
+function videoSettings() {
+  const pair = document.querySelector('input[name="vmode"]:checked').value === 'pair';
+  return {
+    images: videoFrames, pair,
+    prompts: buildVideoPrompts(),
+    model: $('vModel').value, duration: Number($('vDuration').value), ratio: $('vRatio').value,
+    audio: $('vAudio').checked,
+  };
+}
+const videoCount = v => (v.pair ? 1 : v.images.length);
+const settingsKey = v => JSON.stringify(v);
+
+function fillDurations() {
+  const prices = videoOpts.credits[$('vModel').value] || {};
+  const keep = $('vDuration').value || String(vPrefs.duration || 8);
+  $('vDuration').innerHTML = '';
+  for (const d of Object.keys(prices).sort((a, b) => a - b)) $('vDuration').add(new Option(`${d} giây`, d));
+  $('vDuration').value = [...$('vDuration').options].some(o => o.value === keep) ? keep : $('vDuration').options[$('vDuration').options.length - 1]?.value;
+}
+
+function renderVideoCost(note) {
+  const v = videoSettings();
+  const n = videoCount(v);
+  const per = videoOpts.credits[v.model]?.[v.duration];
+  const checked = videoCheck && videoCheck.key === settingsKey(v);
+  const el = $('vCost');
+  el.className = 'cost' + (checked ? ' ok' : '');
+  el.textContent = checked
+    ? `✅ Flow báo ${videoCheck.credits} credit/video → tổng ${videoCheck.credits * n} credit cho ${n} video.`
+    : `Ước tính: ${n} video × ~${per ?? '?'} credit = ~${per ? per * n : '?'} credit. Khi bấm "Tạo video", tool hỏi Flow số credit chính xác rồi mới xin bạn xác nhận.`;
+  if (note) el.append(note);
+  const ready = v.prompts.every(Boolean);
+  $('vGo').disabled = !ready;
+  $('vGo').textContent = checked ? `Tạo ${n} video (${videoCheck.credits * n} credit)` : `Tạo ${n} video`;
+  $('vCheck').disabled = !ready;
+}
+
+function renderVideoFrames() {
+  const pair = document.querySelector('input[name="vmode"]:checked').value === 'pair';
+  const box = $('vFrames');
+  box.innerHTML = '';
+  videoFrames.forEach((u, i) => {
+    if (pair && i === 1) box.insertAdjacentHTML('beforeend', '<span class="arrow" aria-hidden="true">→</span>');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'scene';
+    btn.setAttribute('aria-pressed', String(i === activeScene));
+    btn.title = `Chọn hành động cho Cảnh ${i + 1}`;
+    btn.innerHTML = '<img alt=""><span class="tag"></span>';
+    btn.querySelector('img').src = u;
+    btn.querySelector('.tag').textContent = `Cảnh ${i + 1}`;
+    btn.onclick = () => selectScene(i);
+    box.appendChild(btn);
+  });
+}
+
+function openVideoDialog() {
+  videoFrames = [...selected].filter(isImageUrl);
+  if (!videoFrames.length) return;
+  const canPair = videoFrames.length === 2;
+  $('vPairLabel').classList.toggle('off', !canPair);
+  $('vPairLabel').querySelector('input').disabled = !canPair;
+  if (!canPair) document.querySelector('input[name="vmode"][value="each"]').checked = true;
+  $('vEachLabel').textContent = `Mỗi ảnh thành 1 video (${videoFrames.length} video, ảnh là khung hình đầu)`;
+  videoCheck = null;
+  // Every scene starts with the last used actions (minus custom ones deleted since)
+  const known = defaultActions.filter(id => allMotions().some(m => m.id === id));
+  sceneActions = videoFrames.map(() => [...known]);
+  activeScene = 0;
+  renderVideoFrames();
+  renderMotions();
+  showFinalPrompts();
+  renderVideoCost();
+  $('videoDlg').showModal();
+}
+
+function setupVideoDialog() {
+  for (const c of CAMERAS) $('vCamera').add(new Option(c.label, c.id));
+  for (const x of SPEEDS) $('vSpeed').add(new Option(x.label, x.id));
+  $('vCamera').value = CAMERAS.some(c => c.id === vPrefs.camera) ? vPrefs.camera : 'selfie';
+  $('vSpeed').value = SPEEDS.some(x => x.id === vPrefs.speed) ? vPrefs.speed : 'natural';
+  if (Array.isArray(vPrefs.actions)) defaultActions = vPrefs.actions;
+  $('vCopyAll').onclick = () => {
+    sceneActions = sceneActions.map(() => [...curActions()]);
+    renderMotions();
+    onVideoChange();
+  };
+
+  // Custom action form
+  const closeAdd = () => { $('vAdd').hidden = true; $('vNewLabel').value = $('vNewText').value = ''; };
+  const translateLabel = async () => {
+    const label = $('vNewLabel').value.trim();
+    if (!label) return;
+    $('vNewTranslate').disabled = true;
+    try {
+      const t = (await api(`/api/translate?text=${encodeURIComponent(label)}`)).text;
+      $('vNewText').value = t.charAt(0).toLowerCase() + t.slice(1);
+    } catch (e) { $('vPace').textContent = 'Dịch lỗi: ' + e.message; }
+    finally { $('vNewTranslate').disabled = false; }
+  };
+  $('vNewTranslate').onclick = translateLabel;
+  $('vNewLabel').addEventListener('change', () => { if (!$('vNewText').value.trim()) translateLabel(); });
+  $('vNewCancel').onclick = closeAdd;
+  $('vNewSave').onclick = async () => {
+    const label = $('vNewLabel').value.trim();
+    if (!label) return $('vNewLabel').focus();
+    if (!$('vNewText').value.trim()) await translateLabel();
+    const text = $('vNewText').value.trim();
+    if (!text) return $('vNewText').focus();
+    try {
+      const preset = await api('/api/studio/presets', { group: 'motions', label, text });
+      (studio.presets.motions ||= []).push(preset);
+      setCurActions([...curActions(), preset.id]);
+      closeAdd();
+      renderMotions();
+      onVideoChange();
+    } catch (e) { $('vPace').textContent = 'Lỗi: ' + e.message; }
+  };
+  for (const m of videoOpts.models) {
+    const cheapest = Math.min(...Object.values(videoOpts.credits[m] || { x: NaN }));
+    $('vModel').add(new Option(Number.isFinite(cheapest) ? `${m} · từ ${cheapest} credit` : m, m));
+  }
+  for (const r of videoOpts.ratios) $('vRatio').add(new Option(r, r));
+  $('vModel').value = videoOpts.models.includes(vPrefs.model) ? vPrefs.model : videoOpts.models[0];
+  $('vRatio').value = videoOpts.ratios.includes(vPrefs.ratio) ? vPrefs.ratio : '9:16';
+  fillDurations();
+  $('vPrompt').value = vPrefs.extra || '';
+  $('vKeep').checked = vPrefs.keep !== false;
+  $('vAudio').checked = vPrefs.audio === true;
+
+  $('vModel').addEventListener('change', () => { fillDurations(); onVideoChange(); });
+  for (const id of ['vDuration', 'vRatio', 'vKeep', 'vAudio', 'vCamera', 'vSpeed']) $(id).addEventListener('change', onVideoChange);
+  $('vDuration').addEventListener('change', renderMotions); // pace hint depends on the length
+  $('vPrompt').addEventListener('input', onVideoChange);
+  for (const r of document.querySelectorAll('input[name="vmode"]')) r.addEventListener('change', () => { renderVideoFrames(); renderMotions(); onVideoChange(); });
+  $('vClose').onclick = () => $('videoDlg').close();
+  $('vTranslate').onclick = async () => {
+    const text = $('vPrompt').value.trim();
+    if (!text) return;
+    $('vTranslate').disabled = true;
+    try {
+      $('vPrompt').value = (await api(`/api/translate?text=${encodeURIComponent(text)}`)).text;
+      onVideoChange();
+    } catch (e) { renderVideoCost(document.createTextNode(' — ' + e.message)); }
+    finally { $('vTranslate').disabled = false; }
+  };
+  $('vCheck').onclick = () => runVideoCheck();
+  // Returns true when Flow reported the credit cost for the current settings
+  async function runVideoCheck() {
+    const v = videoSettings();
+    $('vCheck').disabled = $('vGo').disabled = true;
+    $('vCost').className = 'cost';
+    $('vCost').textContent = 'Đang điền video đầu tiên vào Flow… (khoảng 15–30 giây, chưa tốn credit)';
+    try {
+      const r = await api('/api/video', { ...v, confirm: false });
+      videoCheck = { key: settingsKey(v), credits: r.credits };
+      let shot = null;
+      if (r.screenshotUrl) { shot = document.createElement('img'); shot.src = r.screenshotUrl; shot.alt = 'Flow đã sẵn sàng'; shot.onclick = () => window.open(r.screenshotUrl, '_blank', 'noopener'); }
+      renderVideoCost(shot);
+      return true;
+    } catch (e) {
+      videoCheck = null;
+      $('vCost').className = 'cost';
+      $('vCost').textContent = 'Lỗi: ' + e.message;
+      $('vCheck').disabled = $('vGo').disabled = false;
+      return false;
+    }
+  }
+  $('vGo').onclick = async () => {
+    const v = videoSettings();
+    // Not checked yet (or settings changed): ask Flow for the real cost first, then confirm
+    if (!videoCheck || videoCheck.key !== settingsKey(v)) {
+      if (!(await runVideoCheck())) return;
+    }
+    const n = videoCount(v);
+    if (!confirm(`Tạo ${n} video (${v.model}, ${v.duration} giây)?\nFlow báo ${videoCheck.credits} credit/video → tổng ${videoCheck.credits * n} credit.`)) return;
+    $('vGo').disabled = true;
+    try {
+      activeBatch = await api('/api/video', { ...v, confirm: true, maxCredits: videoCheck.credits });
+      $('videoDlg').close();
+      for (const u of videoFrames) setPicked(u, false);
+      renderBatch();
+      pollBatch();
+    } catch (e) {
+      $('vCost').textContent = 'Lỗi: ' + e.message;
+      $('vGo').disabled = false;
+    }
+  };
+}
+
+function showFinalPrompts() {
+  const prompts = buildVideoPrompts();
+  $('vFinal').textContent = prompts.length === 1
+    ? prompts[0] || '(trống — chọn ít nhất 1 hành động hoặc gõ chi tiết)'
+    : prompts.map((t, i) => `Video ${i + 1}: ${t || '(trống — cảnh này chưa có hành động)'}`).join('\n\n');
+}
+
+function onVideoChange() {
+  defaultActions = [...curActions()];
+  showFinalPrompts();
+  writeStore('hatStudio.video', {
+    model: $('vModel').value, duration: Number($('vDuration').value), ratio: $('vRatio').value,
+    actions: defaultActions, camera: $('vCamera').value, speed: $('vSpeed').value,
+    extra: $('vPrompt').value, keep: $('vKeep').checked, audio: $('vAudio').checked,
+  });
+  renderVideoCost();
+}
+
+// ---------- connection ----------
+async function refreshStatus() {
+  try {
+    const s = await api('/api/status');
+    $('dot').className = 'dot' + (s.connected && s.account ? ' ok' : '');
+    $('statusText').textContent = !s.connected ? 'Chưa kết nối (tự kết nối khi tạo)'
+      : s.account || 'Đã kết nối, chưa thấy tài khoản';
+  } catch { $('statusText').textContent = 'Không gọi được server'; }
+}
+$('connectBtn').onclick = async () => {
+  $('connectBtn').disabled = true;
+  $('statusText').textContent = 'Đang kết nối…';
+  try {
+    const r = await api('/api/connect', {});
+    if (r.oauthRequired) showMsg('err', 'Google yêu cầu đăng nhập. Hãy đăng nhập trong cửa sổ trình duyệt rồi thử lại.');
+  } catch (e) { showMsg('err', 'Kết nối lỗi: ' + e.message); }
+  finally { $('connectBtn').disabled = false; refreshStatus(); }
+};
+for (const id of ['model', 'ratio']) $(id).addEventListener('change', savePrefs);
+
+// ---------- init ----------
+(async () => {
+  const prefs = readStore(PREFS_KEY, {});
+  // Older saves stored a single scene / outfit / style
+  for (const [one, many] of [['scene', 'scenes'], ['outfit', 'outfits'], ['style', 'styles']]) {
+    if (typeof prefs[one] === 'string' && !prefs[many]) prefs[many] = [prefs[one]];
+  }
+  state = { ...state, ...Object.fromEntries(Object.entries(prefs).filter(([k]) => k in state)) };
+  const opts = await api('/api/options').catch(() => ({ models: [], ratios: [] }));
+  if (opts.video) videoOpts = opts.video;
+  setupVideoDialog();
+  fillSelect($('model'), opts.models, prefs.model ?? 'Nano Banana 2.1');
+  fillSelect($('ratio'), opts.ratios, prefs.ratio ?? '9:16');
+  editors.characters = createEditor('characters');
+  editors.products = createEditor('products');
+  await loadStudio().catch(e => showMsg('err', 'Không tải được hồ sơ: ' + e.message));
+  // Drop saved selections whose option no longer exists (e.g. a deleted custom one)
+  const defaults = { poses: [...POPULAR_POSES], scenes: ['room'], outfits: ['keep'], styles: ['ugc'] };
+  for (const group of Object.keys(STATE_KEY)) {
+    const key = STATE_KEY[group];
+    state[key] = (state[key] || []).filter(id => findOption(group, id));
+    if (!state[key].length && group !== 'poses') state[key] = defaults[group];
+  }
+  // mix was one global string in older saves; now one mode per group
+  const oldMix = typeof state.mix === 'string' ? state.mix : null;
+  state.mix = Object.fromEntries(MIX_GROUPS.map(g => {
+    const m = oldMix || state.mix?.[g];
+    return [g, m === 'all' ? 'all' : 'rotate'];
+  }));
+  editors.characters.edit(null);
+  editors.products.edit(null);
+  renderShoot();
+  refreshGallery();
+  refreshStatus();
+  if (!studio.characters.length) {
+    openTab('characters');
+    showMsg('info', 'Bắt đầu: tạo nhân vật của bạn (tên + 1–3 ảnh mặt), rồi thêm chiếc mũ cần quảng bá.');
+  }
+})();
+</script>
+</body>
+</html>

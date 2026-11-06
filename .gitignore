@@ -10,3 +10,6 @@ config/flow.projects.json
 .DS_Store
 *.log
 test-agent-generation.js
+uploads/
+data/
+*.7z

@@ -87,7 +87,7 @@ All through your **own Google account** — no API keys, no third-party tokens.
 | What | Why |
 |------|-----|
 | **Node.js ≥ 18** | Runtime for the MCP server |
-| **Google Chrome** | Required for browser automation |
+| **Google Chrome or Microsoft Edge** | Required for browser automation |
 | **OpenCode** | AI agent that connects to MCP servers |
 | **A Google account** | To use Google Flow (yours, not shared) |
 
@@ -117,6 +117,8 @@ Edit `config/flow.config.json`:
 
 > 💡 **Finding your Chrome profile:**  
 > Open Chrome and go to `chrome://version/`. Look for **"Profile Path"** — the last folder name is your profile (e.g., `Profile 3`), and the path before it is your `chromeUserDataDir`.
+>
+> 🌐 **Using Microsoft Edge:** open `edge://version/` instead (e.g. `C:\Users\you\AppData\Local\Microsoft\Edge\User Data` + `Default`). Edge is auto-detected on Windows; set `browserPath` to force a specific executable. Fully close Edge (including Startup Boost / the tray icon) before launching, and run the scripts from Git Bash.
 
 ### 3️⃣ Make scripts executable
 
@@ -152,6 +154,20 @@ chmod +x scripts/*.sh
 ```bash
 ./scripts/test-flow-image.sh
 ```
+
+### 🖥️ Local web GUI (Hat Studio)
+
+```bash
+npm run gui            # http://127.0.0.1:4321  (FLOW_GUI_PORT=4322 to change)
+```
+
+- **Hat Studio** (`/`): save a recurring AI character and products (hats) with reference images, pick poses / scenes / outfits / styles (multi-select, mix, custom options with Google-Translate helper) and generate a whole photo series in one go.
+- **Image → video**: select generated photos → 🎬 *Tạo video*. Per-scene chained actions, camera move, pace, one video per photo or a photo 1 → photo 2 transition. Flow's real credit cost is read and confirmed before anything is generated; audio is off by default.
+- **Downloads**: ⬇ on every image/video, multi-select with Shift-click, "download all/selected" as a `.zip`.
+- **Free-form page** (`/custom`): any prompt with optional reference images.
+
+Only one generation runs at a time, across all GUI servers and processes (lock file in `data/`).
+Generated files go to `outputs/images/<productId>/` and `outputs/videos/<productId>/`.
 
 ---
 
@@ -234,7 +250,7 @@ All tools are organized by function for easy discovery.
 
 | Tool | Description |
 |------|-------------|
-| `flow_generate_video` | Set up video generation (Omni Flash, Veo models, custom duration/ratio). ⚠️ **Stops at "ready to generate" — no credit consumed.** |
+| `flow_generate_video` | Image → video (Video › Frames): start frame (+ optional end frame) + motion prompt, Veo 3.1 Lite/Fast/Quality or Omni 1.1 Flash. Default only sets up and returns Flow's credit cost; `auto_confirm: true` generates and downloads the `.mp4` (`max_credits` caps the spend, `audio` defaults to off). |
 | `flow_create_scene` | Create a video scene with characters and a text prompt |
 
 ### 👤 Characters
@@ -272,7 +288,8 @@ Edit `config/flow.config.json` (copy from `config/flow.config.example.json`):
 |-----|------|---------|-------------|
 | `expectedAccount` | `string` | — | Your Google account email ✅ **REQUIRED** |
 | `chromeProfile` | `string` | `"Profile 3"` | Chrome profile directory name |
-| `chromeUserDataDir` | `string` | — | Full path to Chrome user data directory ✅ **REQUIRED** |
+| `chromeUserDataDir` | `string` | — | Full path to Chrome/Edge user data directory ✅ **REQUIRED** |
+| `browserPath` | `string` | *auto-detected* | Path to the Chrome or Edge executable (e.g. `msedge.exe`) |
 | `flowUrl` | `string` | *Flow labs URL* | Google Flow URL (supports `fr`, `en` locales) |
 
 ### 🔧 Advanced
@@ -345,7 +362,7 @@ Yes! Any MCP-compatible client (Claude Desktop, Continue.dev, etc.) can connect 
 <details>
 <summary><strong>Chrome doesn't start</strong></summary>
 
-Make sure Chrome is installed at the expected path. On Linux, the default is `/opt/google/chrome/chrome`. Edit `scripts/start-browser.sh` to set the correct `CHROME` path for your system.
+Chrome/Edge is auto-detected in the usual install locations. If yours lives elsewhere, set `browserPath` in `config/flow.config.json`. Close all windows of that browser before starting so the profile can be copied.
 </details>
 
 <details>

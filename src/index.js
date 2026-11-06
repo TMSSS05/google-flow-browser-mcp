@@ -79,10 +79,11 @@ const TOOL_DEFINITIONS = [
       type: 'object',
       properties: {
         prompt: { type: 'string', description: 'The text prompt for image generation.' },
-        model: { type: 'string', description: 'Model to use: Nano Banana Pro, Nano Banana 2, or Imagen 4.', default: 'Nano Banana 2' },
+        model: { type: 'string', description: 'Model to use: Nano Banana Pro, Nano Banana 2.1, or Nano Banana 2 Lite ("Nano Banana 2" = alias of 2.1).', default: 'Nano Banana 2' },
+        quantity: { type: 'number', description: 'Number of images to generate (1-4). Each image consumes credits.', default: 1 },
         auto_confirm: { type: 'boolean', description: '⚠️ CRÉDITS. Si false (défaut): prépare seulement, ne consomme rien. Si true: vérifie que le mode Image est actif, PUIS clique Generate (consomme des crédits).', default: false },
         ratio: { type: 'string', description: 'Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4.', default: '1:1' },
-        reference_images: { type: 'array', items: { type: 'string' }, description: 'Paths to reference images (optional).' },
+        reference_images: { type: 'array', items: { type: 'string' }, description: 'Local paths to reference images (e.g. product photo, character photo). Uploaded to the Flow project and attached to the prompt; file names should be unique. Uploading is free.' },
         brand: { type: 'string', description: 'Brand context for automatic model selection: premium, standard.' },
         project_name: { type: 'string', description: 'Name for the project (will reuse existing project with same campaign, or create new).' },
         campaign: { type: 'string', description: 'Campaign identifier for project matching (e.g., "ete-2026", "nouvelle-collection").' },
@@ -92,19 +93,27 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'flow_generate_video',
-    description: 'Set up a video generation in Google Flow. Fills prompt, selects Omni Flash or Veo model, configures settings. NOTE: Does NOT click final Generate (paid feature — stops at ready-to-generate).',
+    description: 'Image → video in Google Flow (Video › Frames): a local image as start frame (optional end frame) plus a motion prompt. ' +
+      'Default auto_confirm=false only sets everything up and returns the credit cost Flow shows (no credits used). ' +
+      'auto_confirm=true clicks Generate (USES CREDITS), waits for the video and downloads the .mp4.',
     inputSchema: {
       type: 'object',
       properties: {
-        prompt: { type: 'string', description: 'The text prompt for video generation.' },
-        model: { type: 'string', description: 'Model: Omni Flash, Veo 2, Nano Banana 2.', default: 'Omni Flash' },
-        ratio: { type: 'string', description: 'Aspect ratio: 16:9, 9:16, 1:1.', default: '16:9' },
-        duration: { type: 'number', description: 'Target duration in seconds.', default: 5 },
-        reference_images: { type: 'array', items: { type: 'string' }, description: 'Paths to reference images (optional).' },
+        prompt: { type: 'string', description: 'Motion description, e.g. "she tilts her head and smiles at the camera".' },
+        start_frame: { type: 'string', description: 'Absolute path of the image used as the first frame.' },
+        end_frame: { type: 'string', description: 'Optional absolute path of the image used as the last frame.' },
+        model: { type: 'string', description: 'Veo 3.1 - Lite (cheapest), Veo 3.1 - Fast, Omni 1.1 Flash, Veo 3.1 - Quality (expensive).', default: 'Veo 3.1 - Lite' },
+        ratio: { type: 'string', description: '9:16 or 16:9.', default: '9:16' },
+        duration: { type: 'number', description: 'Seconds: 4, 6 or 8 (10 only with Omni 1.1 Flash).', default: 8 },
+        quantity: { type: 'number', description: 'Videos per generation, 1–4.', default: 1 },
+        audio: { type: 'boolean', description: 'Generate sound. Default false (Flow "return videos without audio" on — avoids "couldn\'t generate audio" failures).', default: false },
+        auto_confirm: { type: 'boolean', description: 'true = click Generate and spend credits. Default false (setup + cost only).', default: false },
+        max_credits: { type: 'number', description: 'With auto_confirm: refuse to generate if Flow asks for more credits than this.' },
+        output_folder: { type: 'string', description: 'Where to save the .mp4 (optional).' },
         project_name: { type: 'string', description: 'Name for the project (will reuse existing project with same campaign, or create new).' },
         campaign: { type: 'string', description: 'Campaign identifier for project matching (e.g., "ete-2026", "nouvelle-collection").' },
       },
-      required: ['prompt'],
+      required: ['prompt', 'start_frame'],
     },
   },
   {
@@ -247,7 +256,7 @@ async function handleToolCall(name, args) {
             + '  3. Complete the Google sign-in (one time)\n'
             + '  4. Retry this MCP tool in headless mode',
           browserType: 'Chrome Profile 3',
-          account: accountCheck?.account || 'verified-account',
+          account: accountCheck?.account ?? null,
           url: page.url().substring(0, 100),
           accountVerified: accountCheck,
         }, null, 2) }] };
@@ -255,7 +264,7 @@ async function handleToolCall(name, args) {
       return { content: [{ type: 'text', text: JSON.stringify({
         status: 'connected',
         browserType: 'Chrome Profile 3',
-        account: accountCheck?.account || 'verified-account',
+        account: accountCheck?.account ?? null,
         url: page.url(),
         accountVerified: accountCheck,
       }, null, 2) }] };

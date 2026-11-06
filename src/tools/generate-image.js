@@ -5,9 +5,42 @@ import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { takeScreenshot } from '../utils/screenshots.js';
 import { prepareDownload, saveMetadata } from '../utils/file-manager.js';
 import { ensureProjectInContext } from '../navigation/project-navigator.js';
+import { applyImageSettings } from '../navigation/generation-settings.js';
+import { attachReferenceImages, clearReferenceImages } from '../navigation/reference-images.js';
 import { get } from '../utils/config.js';
 import fs from 'fs';
 import path from 'path';
+
+// The composer's Generate button (arrow_forward icon). Never use a bare [type="submit"].
+const GENERATE_BTN = 'button[type="submit"]:has-text("arrow_forward")';
+
+/**
+ * Map of media uuid → image URL for project images currently in the DOM.
+ * Flow serves them from flow-content.google/image/<uuid>; older builds used
+ * media.getMediaUrlRedirect?name=<uuid>.
+ * Reference images attached to the prompt (chips) are excluded — their uploads also
+ * show up as project tiles and must never be mistaken for generated output.
+ */
+async function collectImageSources(page, excludeUuids = []) {
+  return page.evaluate(exclude => {
+    const uuidOf = src => (src.match(/flow-content\.google\/image\/([a-f0-9-]{36})/) ||
+      src.match(/media\.getMediaUrlRedirect\?name=([a-f0-9-]+)/) || [])[1];
+    const skip = new Set(exclude);
+    for (const i of document.querySelectorAll('button.chip-container img')) skip.add(uuidOf(i.src || ''));
+    const out = {};
+    for (const img of document.querySelectorAll('img')) {
+      const uuid = uuidOf(img.src || '');
+      if (uuid && img.width > 100 && !skip.has(uuid)) out[uuid] = img.src;
+    }
+    return out;
+  }, excludeUuids).catch(() => ({}));
+}
+
+/** Media uuids of the reference images currently attached to the prompt. */
+async function attachedReferenceUuids(page) {
+  return page.evaluate(() => Array.from(document.querySelectorAll('button.chip-container img'))
+    .map(i => ((i.src || '').match(/\/image\/([a-f0-9-]{36})/) || [])[1]).filter(Boolean)).catch(() => []);
+}
 
 function selectModel(requested) {
   const available = get('imageModels', {});
@@ -21,7 +54,7 @@ function selectModel(requested) {
 function selectRatio(requested) {
   const ratios = get('ratios', []);
   if (!requested || ratios.includes(requested)) {
-    return requested || '16:9';
+    return requested || '1:1'; // matches the tool schema default
   }
   return null;
 }
@@ -31,7 +64,7 @@ export async function handleGenerateImage(args) {
   const job = jobQueue.createJob('image_generation', {
     prompt: args.prompt,
     model: args.model || 'auto',
-    ratio: args.ratio || '16:9',
+    ratio: args.ratio || '1:1',
     auto_confirm: autoConfirm,
     quantity: args.quantity || 1,
     outputFolder: args.output_folder,
@@ -84,44 +117,22 @@ export async function handleGenerateImage(args) {
         `Ratio "${args.ratio}" not available. Available: ${get('ratios', []).join(', ')}`);
     }
 
-    // STEP 4: Verify the model selector confirms IMAGE mode (NOT video)
-    // Flow's bottom toolbar is always present in a project with a model selector.
-    // No "Image/Video" mode tabs exist — the generation mode is determined by
-    // which model is selected (e.g. "Nano Banana 2" = image, "Omni Flash" = video).
-    const modelFromUI = await page.evaluate(() => {
-      const modelBtn = Array.from(document.querySelectorAll('button'))
-        .find(b => {
-          const text = b.textContent || '';
-          return (text.includes('Nano') || text.includes('Banana') ||
-                  text.includes('Omni') || text.includes('Veo') ||
-                  text.includes('Imagen')) && b.offsetParent !== null;
-        });
-      return modelBtn ? modelBtn.textContent.trim().replace(/\s+/g, ' ').substring(0, 80) : null;
-    }).catch(() => null);
-
-    if (modelFromUI) {
-      logger.info('Model selector shows:', { modelFromUI });
-      const videoModelNames = ['Omni Flash', 'Veo', 'Omni'];
-      const isVideoModel = videoModelNames.some(v => modelFromUI.includes(v));
-      if (isVideoModel) {
-        await takeScreenshot(page, 'video-model-detected');
-        throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
-          `🚨 BLOCAGE SÉCURITÉ: Le modèle "${modelFromUI}" est un modèle VIDÉO. ` +
-          `Refus de générer pour éviter des crédits vidéo payants. ` +
-          `Utilise flow_generate_video pour les vidéos.`);
-      }
-      logger.info('✅ Model selector confirms image mode');
-    } else {
-      logger.warn('Could not read model selector — assuming image mode from config');
+    const quantity = Number(args.quantity) || 1;
+    if (!get('quantities', [1, 2, 3, 4]).includes(quantity)) {
+      throw new FlowError(ErrorCodes.INVALID_PARAMS,
+        `Quantity ${quantity} not available. Available: ${get('quantities', [1, 2, 3, 4]).join(', ')}`);
     }
 
-    // Also verify the generate button exists (confirms the toolbar is active)
-    const hasGenerateBtn = await page.locator(
-      'button:has-text("arrow_forward"), button:has-text("Créer")'
-    ).first().isVisible().catch(() => false);
-    if (!hasGenerateBtn) {
-      logger.warn('Generate button not visible on project page');
-    }
+    // STEP 4: Set Image mode + model + ratio + quantity in the settings panel,
+    // then verify via the composer chip. Throws (no generation) on any mismatch.
+    const uiSettings = await applyImageSettings(page, { model, ratio, quantity });
+
+    // STEP 4b: Attach reference images (product / character) as prompt ingredients.
+    // Always clear leftovers so a previous job's references don't leak into this one.
+    const referenceImages = args.reference_images || args.references || [];
+    const referenceCount = referenceImages.length
+      ? await attachReferenceImages(page, referenceImages)
+      : (await clearReferenceImages(page), 0);
 
     // STEP 5: Find the prompt input (contenteditable div at bottom toolbar)
     let promptInput = null;
@@ -156,9 +167,16 @@ export async function handleGenerateImage(args) {
     await promptInput.click();
     await promptInput.fill('');
     await page.waitForTimeout(200);
-    await promptInput.type(args.prompt, { delay: 15 });
-    logger.info('Prompt filled', { promptLength: args.prompt.length });
+    // Insert in one go: typing char-by-char exceeds the 30s action timeout on long ad prompts
+    await page.keyboard.insertText(args.prompt);
     await page.waitForTimeout(500);
+    const typed = ((await promptInput.textContent()) || '').replace(/\s+/g, ' ').trim();
+    if (typed !== args.prompt.replace(/\s+/g, ' ').trim()) {
+      await takeScreenshot(page, 'prompt-mismatch');
+      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+        `Prompt in Flow doesn't match what was sent (${typed.length}/${args.prompt.length} chars). Generation aborted.`);
+    }
+    logger.info('Prompt filled', { promptLength: args.prompt.length });
 
     // ⚠️ STEP 7: DECISION POINT — auto_confirm determines if we click Generate
     if (!autoConfirm) {
@@ -169,8 +187,11 @@ export async function handleGenerateImage(args) {
         type: 'image',
         message: '✅ Prompt, modèle et ratio sont prêts. Aucun crédit consommé. ' +
           'Pour générer et consommer des crédits, rappelle avec auto_confirm=true.',
-        model_used: model,
-        ratio,
+        model_used: uiSettings.model,
+        ratio: uiSettings.ratio,
+        quantity: uiSettings.quantity,
+        ui_settings: uiSettings.raw,
+        reference_images: referenceCount,
         prompt: args.prompt,
         account: get('expectedAccount'),
         screenshot: setupScreenshot,
@@ -185,10 +206,7 @@ export async function handleGenerateImage(args) {
     const preGenScreenshot = await takeScreenshot(page, 'pre-generate-verification');
 
     // STEP 8: Find generate button
-    const generateBtnLocator = page.locator(
-      'button:has-text("arrow_forward"), ' +
-      'button:has-text("Generate")'
-    ).first();
+    const generateBtnLocator = page.locator(GENERATE_BTN).first();
     const generateBtnVisible = await generateBtnLocator.isVisible().catch(() => false);
     if (!generateBtnVisible) {
       await takeScreenshot(page, 'no-generate-btn');
@@ -207,6 +225,19 @@ export async function handleGenerateImage(args) {
       if (!fs.existsSync(args.output_folder)) {
         fs.mkdirSync(args.output_folder, { recursive: true });
       }
+    }
+
+    // Snapshot right before Generate — after reference uploads — so only images
+    // produced by THIS click count as output.
+    // Reference uuids are remembered too: Flow may clear the chips after Generate.
+    const referenceUuids = await attachedReferenceUuids(page);
+    const existingImages = await collectImageSources(page, referenceUuids);
+    if (referenceUuids.length !== referenceCount) {
+      // Without every reference id we can't tell uploads from generated output → stop before spending credits
+      await takeScreenshot(page, 'reference-ids-missing');
+      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+        `Could not read the ids of all reference images (${referenceUuids.length}/${referenceCount}). ` +
+        'Generation aborted before clicking Generate — no credits used.');
     }
 
     // STEP 10: Click generate ⚠️ CRÉDITS SERONT CONSOMMÉS
@@ -238,47 +269,34 @@ export async function handleGenerateImage(args) {
 
     logger.info('Generation flow', { mode: flowMode });
 
-    // STEP 12: Wait for images to appear in the DOM
-    logger.info('Waiting for generated images...');
-    let generatedImageUuids = [];
+    // STEP 12: Wait for NEW images (not present before this job) to appear in the DOM
+    logger.info('Waiting for generated images...', { expected: quantity });
+    let newImages = {};
     const genTimeoutMs = get('generationTimeoutMs', 120000);
     const genStart = Date.now();
+    let lastWaitShot = 0;
 
     while (Date.now() - genStart < genTimeoutMs) {
       await page.waitForTimeout(2000);
 
-      const imageUuids = await page.evaluate(() => {
-        const imgs = Array.from(document.querySelectorAll('img'));
-        const uuids = [];
-        imgs.forEach(img => {
-          const src = img.src || '';
-          const match = src.match(/media\.getMediaUrlRedirect\?name=([a-f0-9-]+)/);
-          if (match && img.width > 100) {
-            uuids.push(match[1]);
-          }
-        });
-        return [...new Set(uuids)];
-      });
-
-      if (imageUuids.length > 0) {
-        generatedImageUuids = imageUuids;
-        logger.info('Generated images detected in DOM', { count: imageUuids.length });
+      const current = await collectImageSources(page, referenceUuids);
+      newImages = Object.fromEntries(
+        Object.entries(current).filter(([uuid]) => !(uuid in existingImages))
+      );
+      if (Object.keys(newImages).length >= quantity) {
+        logger.info('Generated images detected in DOM', { count: Object.keys(newImages).length });
         break;
       }
 
-      const hasDownload = await page.locator(
-        'text=Télécharger, text=download, [aria-label*="download"]'
-      ).first().isVisible().catch(() => false);
-      if (hasDownload) {
-        logger.info('Download button appeared after generation');
-        break;
-      }
-
-      if ((Date.now() - genStart) % 30000 === 0) {
-        logger.info('Still waiting for images...', { elapsed: Date.now() - genStart });
-        await takeScreenshot(page, `gen-wait-${Math.round((Date.now() - genStart) / 1000)}s`);
+      const elapsed = Date.now() - genStart;
+      if (elapsed - lastWaitShot >= 30000) {
+        lastWaitShot = elapsed;
+        logger.info('Still waiting for images...', { elapsed, found: Object.keys(newImages).length });
+        await takeScreenshot(page, `gen-wait-${Math.round(elapsed / 1000)}s`);
       }
     }
+
+    const generatedImageUuids = Object.keys(newImages);
 
     if (generatedImageUuids.length === 0) {
       await takeScreenshot(page, 'no-images-detected');
@@ -293,12 +311,11 @@ export async function handleGenerateImage(args) {
 
     for (const uuid of generatedImageUuids) {
       try {
-        const response = await page.goto(
-          `https://labs.google/fx/api/trpc/media.getMediaUrlRedirect?name=${uuid}`,
-          { waitUntil: 'load', timeout: 15000 }
-        );
+        // Fetch through the browser context (shares the signed-in cookies) without
+        // navigating the page away from the project.
+        const response = await page.context().request.get(newImages[uuid], { timeout: 30000 });
 
-        if (response && response.ok()) {
+        if (response.ok()) {
           const contentType = response.headers()['content-type'] || '';
           if (contentType.startsWith('image/')) {
             const buffer = await response.body();
@@ -322,10 +339,11 @@ export async function handleGenerateImage(args) {
 
     saveMetadata(job.id, {
       type: 'image',
-      model,
-      ratio,
+      model: uiSettings.model,
+      ratio: uiSettings.ratio,
       auto_confirm: true,
-      quantity: args.quantity || 1,
+      quantity: uiSettings.quantity,
+      reference_images: referenceImages,
       prompt: args.prompt,
       files: downloadedFiles,
       jobId: job.id,
@@ -336,8 +354,10 @@ export async function handleGenerateImage(args) {
       status: 'success',
       type: 'image',
       account: get('expectedAccount'),
-      model_used: model,
-      ratio,
+      model_used: uiSettings.model,
+      ratio: uiSettings.ratio,
+      quantity: uiSettings.quantity,
+      reference_images: referenceCount,
       prompt: args.prompt,
       files: downloadedFiles,
       image_count: downloadedFiles.length,
@@ -346,8 +366,8 @@ export async function handleGenerateImage(args) {
 
     return jobQueue.getJob(job.id).result;
   } catch (err) {
-    await takeScreenshot(getPage(), 'generate-image-error');
-    jobQueue.failJob(job.id, err);
+    jobQueue.failJob(job.id, err); // first, so a failed screenshot can't leave the job stuck "running"
+    try { await takeScreenshot(getPage(), 'generate-image-error'); } catch { /* browser not connected */ }
     throw err;
   }
 }

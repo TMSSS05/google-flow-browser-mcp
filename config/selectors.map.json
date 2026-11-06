@@ -1,133 +1,889 @@
 {
   "_description": "UI selectors map for Google Flow. Discovered via flow_discover_ui. Update when Flow UI changes.",
-  "_lastUpdated": "2026-05-31T03:01:18.043Z",
+  "_lastUpdated": "2026-10-28T05:57:40.918Z",
   "main": {
-    "url": "https://labs.google/fx/fr/tools/flow",
-    "title": "Flow",
-    "discoveredAt": "2026-05-31T03:01:18.043Z",
+    "url": "https://flow.google.com/about",
+    "title": "Google Flow - AI Creative Studio for Video, Images & Custom Tools",
+    "discoveredAt": "2026-10-28T05:57:40.918Z",
     "selectors": {
       "buttons": [
         {
-          "text": "help_outlinedCentre d'aide FlowCentre d'aide Flow",
-          "visible": true,
-          "tag": "BUTTON",
-          "ariaLabel": null,
-          "dataTestId": null
-        },
-        {
           "text": "more_vert",
           "visible": true,
-          "tag": "I",
-          "ariaLabel": null,
+          "tag": "BUTTON",
+          "ariaLabel": "More options",
           "dataTestId": null
         },
         {
-          "text": "PRO",
+          "text": "Create with Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Create with Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Pause video",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Pause video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Play feature video",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "Try in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Learn more",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Learn more",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous model",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Next model",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Next slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Next slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Next slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Next slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Next slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous slide",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Next slide",
+          "dataTestId": null
+        },
+        {
+          "text": "Plan",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "closeFermerFermer",
+          "text": "Create",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "Try Omni now",
+          "text": "Refine",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "Accéder à la bannière 1",
-          "visible": true,
-          "tag": "BUTTON",
-          "ariaLabel": "Accéder à la bannière 1",
-          "dataTestId": null
-        },
-        {
-          "text": "Accéder à la bannière 2",
-          "visible": true,
-          "tag": "BUTTON",
-          "ariaLabel": "Accéder à la bannière 2",
-          "dataTestId": null
-        },
-        {
-          "text": "Accéder à la bannière 3",
-          "visible": true,
-          "tag": "BUTTON",
-          "ariaLabel": "Accéder à la bannière 3",
-          "dataTestId": null
-        },
-        {
-          "text": "Accéder à la bannière 4",
-          "visible": true,
-          "tag": "BUTTON",
-          "ariaLabel": "Accéder à la bannière 4",
-          "dataTestId": null
-        },
-        {
-          "text": "Accéder à la bannière 5",
-          "visible": true,
-          "tag": "BUTTON",
-          "ariaLabel": "Accéder à la bannière 5",
-          "dataTestId": null
-        },
-        {
-          "text": "Accéder à la bannière 6",
-          "visible": true,
-          "tag": "BUTTON",
-          "ariaLabel": "Accéder à la bannière 6",
-          "dataTestId": null
-        },
-        {
-          "text": "editModifier le projet",
+          "text": "Create with Google Flow",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "deleteSupprimer le projet",
+          "text": "Type OverlaysAdd animated text to your videos",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "editModifier le projet",
+          "text": "Video ResizerResize your videos into any aspect ratio",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "deleteSupprimer le projet",
+          "text": "Image EditorTransform objects, add text, and adjust image sizing with a layer ba",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "editModifier le projet",
+          "text": "Storyboard StudioWrite a script, create the cast, and visualize a storyboard",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "deleteSupprimer le projet",
+          "text": "Shader EffectsApply customizable visual filters to your videos and images",
           "visible": true,
           "tag": "BUTTON",
           "ariaLabel": null,
           "dataTestId": null
         },
         {
-          "text": "add_2Nouveau projet",
+          "text": "MockupComp your image into different environments",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "RibbitPerform videos live as the beat drives playback.",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "ConvergeRender your sketches",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Character X-rayDevelop your characters and their backstory",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "pixelBentoApply post-processing effects like lo-fi and glitch",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Grid ArchitectCreate image grids and extract individual images from them",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Scout360Capture a 360 degree environment from an image",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Explore Tools in Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Explore Tools in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous applet",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Next applet",
+          "dataTestId": null
+        },
+        {
+          "text": "Explore Tools in Google Flow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Explore Tools in Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Calvin\nHerbst",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "COMBO &\nCharline Prat",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Léo\nCannone",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Katie\nLuo",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "OLD NEW\nRARE",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Julie\nWieland",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Calvin\nHerbst",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "COMBO &\nCharline Prat",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Léo\nCannone",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Katie\nLuo",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "OLD NEW\nRARE",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Julie\nWieland",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Calvin\nHerbst",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "COMBO &\nCharline Prat",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Léo\nCannone",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "Katie\nLuo",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "arrow_upward",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous partner",
+          "dataTestId": null
+        },
+        {
+          "text": "arrow_downward",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Next partner",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "play_arrow",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Watch video",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_left",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Previous partner",
+          "dataTestId": null
+        },
+        {
+          "text": "chevron_right",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": "Next partner",
+          "dataTestId": null
+        },
+        {
+          "text": "Try Google Flow",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Try Google Flow",
+          "dataTestId": null
+        },
+        {
+          "text": "Get started",
+          "visible": true,
+          "tag": "BUTTON",
+          "ariaLabel": "Without a Google AI Subscription",
+          "dataTestId": null
+        },
+        {
+          "text": "View plan features +",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "View plan features +",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "View plan features +",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "View plan features +",
+          "visible": false,
+          "tag": "BUTTON",
+          "ariaLabel": null,
+          "dataTestId": null
+        },
+        {
+          "text": "View plan features +",
           "visible": false,
           "tag": "BUTTON",
           "ariaLabel": null,
@@ -145,33 +901,739 @@
       ],
       "links": [
         {
-          "text": "Flow",
-          "href": "/fx/fr/tools/flow",
+          "text": "Skip to main content",
+          "href": "#main-content",
+          "visible": false
+        },
+        {
+          "text": "Sign in",
+          "href": "https://accounts.google.com/ServiceLogin?passive=1209600&osid=1&continue=https://flow.google.com/&fo",
           "visible": true
         },
         {
-          "text": "tvFlow TV",
-          "href": "https://labs.google/flow/tv",
+          "text": "Overview",
+          "href": "#overview",
+          "visible": true
+        },
+        {
+          "text": "Models",
+          "href": "#models",
+          "visible": true
+        },
+        {
+          "text": "Capabilities",
+          "href": "#capabilities",
+          "visible": true
+        },
+        {
+          "text": "Tools",
+          "href": "#tools",
+          "visible": true
+        },
+        {
+          "text": "Flow Sessions",
+          "href": "#flow-sessions",
+          "visible": true
+        },
+        {
+          "text": "Pricing",
+          "href": "#pricing",
+          "visible": true
+        },
+        {
+          "text": "Google AI Subscriptions",
+          "href": "https://one.google.com/ai?utm_source=flow&utm_medium=web&utm_campaign=vfx_landing_page_offer",
+          "visible": true
+        },
+        {
+          "text": "FAQ",
+          "href": "https://support.google.com/flow",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/075ead65-520a-4f5e-88bd-f150caa24dc4",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/b78766c3-4cd7-4c1e-b597-769d4cfcf37a",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/1b12bbd4-51d7-4c76-8b62-24ac2473e07e",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/79c9d2e6-4ad6-4636-ad05-22022f8a5a74",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/63ca3af5-0058-4c7f-b104-dfc417db2e22",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/611fa902-797c-457d-92de-71a3dc714894",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/46270263-54a1-46fb-a68c-dae111f650fb",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/f260ed2b-2a14-4ece-a8d3-88b8cf6e660f",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/32f2b8f8-a1a9-43ed-899f-c0fbff2e9599",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/44b73cc0-ad82-49a6-b118-86c31ec49a71",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/52da09f1-1da1-4a40-96c6-41d36b3b2392",
+          "visible": true
+        },
+        {
+          "text": "Explore",
+          "href": "https://flow.google.com/shared/tool/2102cb9f-a06e-4590-8a53-aa34bdcb0dff",
+          "visible": true
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/075ead65-520a-4f5e-88bd-f150caa24dc4",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/b78766c3-4cd7-4c1e-b597-769d4cfcf37a",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/1b12bbd4-51d7-4c76-8b62-24ac2473e07e",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/79c9d2e6-4ad6-4636-ad05-22022f8a5a74",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/63ca3af5-0058-4c7f-b104-dfc417db2e22",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/611fa902-797c-457d-92de-71a3dc714894",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/46270263-54a1-46fb-a68c-dae111f650fb",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/f260ed2b-2a14-4ece-a8d3-88b8cf6e660f",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/32f2b8f8-a1a9-43ed-899f-c0fbff2e9599",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/44b73cc0-ad82-49a6-b118-86c31ec49a71",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/52da09f1-1da1-4a40-96c6-41d36b3b2392",
+          "visible": false
+        },
+        {
+          "text": "View tool",
+          "href": "https://flow.google.com/shared/tool/2102cb9f-a06e-4590-8a53-aa34bdcb0dff",
+          "visible": false
+        },
+        {
+          "text": "Apply here",
+          "href": "https://forms.gle/HLAPuofYwHMhcW3G9",
+          "visible": true
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=mi-1OPsj-_o",
+          "visible": true
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=mi-1OPsj-_o",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=n1e7uCk7HO0",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=li9ZIqHPWIM",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=636k7kUf9zc",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=6dJneUwNyMg",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=W7P4LpZfyLU",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=mi-1OPsj-_o",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=n1e7uCk7HO0",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=li9ZIqHPWIM",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=636k7kUf9zc",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=6dJneUwNyMg",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=W7P4LpZfyLU",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=mi-1OPsj-_o",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=n1e7uCk7HO0",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=li9ZIqHPWIM",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=636k7kUf9zc",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=6dJneUwNyMg",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=W7P4LpZfyLU",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=mi-1OPsj-_o",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=n1e7uCk7HO0",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=li9ZIqHPWIM",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=636k7kUf9zc",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=6dJneUwNyMg",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=W7P4LpZfyLU",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=mi-1OPsj-_o",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=n1e7uCk7HO0",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=li9ZIqHPWIM",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=636k7kUf9zc",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=6dJneUwNyMg",
+          "visible": false
+        },
+        {
+          "text": "Watch  play_arrow",
+          "href": "https://www.youtube.com/watch?v=W7P4LpZfyLU",
+          "visible": false
+        },
+        {
+          "text": "Get started",
+          "href": "https://one.google.com/ai?utm_source=flow&utm_medium=web&utm_campaign=vfx_landing_page_offer",
+          "visible": true
+        },
+        {
+          "text": "Get started",
+          "href": "https://one.google.com/ai?utm_source=flow&utm_medium=web&utm_campaign=vfx_landing_page_offer",
+          "visible": true
+        },
+        {
+          "text": "Get started",
+          "href": "https://one.google.com/ai?utm_source=flow&utm_medium=web&utm_campaign=vfx_landing_page_offer",
+          "visible": true
+        },
+        {
+          "text": "Get started",
+          "href": "https://one.google.com/ai?utm_source=flow&utm_medium=web&utm_campaign=vfx_landing_page_offer",
+          "visible": true
+        },
+        {
+          "text": "FAQ.",
+          "href": "https://support.google.com/flow",
+          "visible": true
+        },
+        {
+          "text": "here",
+          "href": "https://support.google.com/flow/answer/16526234?hl=en&ref_topic=16908930&sjid=8302414642879798693-NC",
+          "visible": true
+        },
+        {
+          "text": "here",
+          "href": "https://support.google.com/flow/answer/16353544?hl=en&ref_topic=16908930&sjid=8302414642879798693-NC",
+          "visible": true
+        },
+        {
+          "text": "Privacy Policy",
+          "href": "https://policies.google.com/privacy",
+          "visible": true
+        },
+        {
+          "text": "Terms of Service",
+          "href": "https://policies.google.com/terms",
           "visible": true
         }
       ],
       "headings": [
         {
+          "level": "H1",
+          "text": "Google Flow"
+        },
+        {
           "level": "H2",
-          "text": "Introducing Gemini Omni Flash"
+          "text": "Unlock yourbest creative work"
+        },
+        {
+          "level": "H3",
+          "text": "Our Models"
+        },
+        {
+          "level": "H3",
+          "text": "Gemini Omni"
+        },
+        {
+          "level": "H3",
+          "text": "Nano Banana"
+        },
+        {
+          "level": "H3",
+          "text": "Veo 3.1"
+        },
+        {
+          "level": "H3",
+          "text": "Gemini Omni"
+        },
+        {
+          "level": "H3",
+          "text": "Nano Banana"
+        },
+        {
+          "level": "H3",
+          "text": "Veo 3.1"
+        },
+        {
+          "level": "H3",
+          "text": "Gemini Omni"
+        },
+        {
+          "level": "H3",
+          "text": "Nano Banana"
+        },
+        {
+          "level": "H3",
+          "text": "Veo 3.1"
+        },
+        {
+          "level": "H3",
+          "text": "Gemini Omni"
+        },
+        {
+          "level": "H3",
+          "text": "Nano Banana"
+        },
+        {
+          "level": "H3",
+          "text": "Veo 3.1"
+        },
+        {
+          "level": "H3",
+          "text": "Gemini Omni"
+        },
+        {
+          "level": "H3",
+          "text": "Nano Banana"
+        },
+        {
+          "level": "H3",
+          "text": "Veo 3.1"
+        },
+        {
+          "level": "H3",
+          "text": "Plan"
+        },
+        {
+          "level": "H3",
+          "text": "Create"
+        },
+        {
+          "level": "H3",
+          "text": "Refine"
+        },
+        {
+          "level": "H3",
+          "text": "Create tools using natural language"
+        },
+        {
+          "level": "H4",
+          "text": "Google"
+        },
+        {
+          "level": "H4",
+          "text": "Type Overlays"
+        },
+        {
+          "level": "H4",
+          "text": "Video Resizer"
+        },
+        {
+          "level": "H4",
+          "text": "Image Editor"
+        },
+        {
+          "level": "H4",
+          "text": "Storyboard Studio"
+        },
+        {
+          "level": "H4",
+          "text": "Shader Effects"
+        },
+        {
+          "level": "H4",
+          "text": "Mockup"
+        },
+        {
+          "level": "H4",
+          "text": "Ribbit"
+        },
+        {
+          "level": "H4",
+          "text": "Converge"
+        },
+        {
+          "level": "H4",
+          "text": "Character X-ray"
+        },
+        {
+          "level": "H4",
+          "text": "pixelBento"
+        },
+        {
+          "level": "H4",
+          "text": "Grid Architect"
+        },
+        {
+          "level": "H4",
+          "text": "Scout360"
+        },
+        {
+          "level": "H3",
+          "text": "Type Overlays"
+        },
+        {
+          "level": "H3",
+          "text": "Video Resizer"
+        },
+        {
+          "level": "H3",
+          "text": "Image Editor"
+        },
+        {
+          "level": "H3",
+          "text": "Storyboard Studio"
+        },
+        {
+          "level": "H3",
+          "text": "Shader Effects"
+        },
+        {
+          "level": "H3",
+          "text": "Mockup"
+        },
+        {
+          "level": "H3",
+          "text": "Ribbit"
+        },
+        {
+          "level": "H3",
+          "text": "Converge"
+        },
+        {
+          "level": "H3",
+          "text": "Character X-ray"
+        },
+        {
+          "level": "H3",
+          "text": "pixelBento"
+        },
+        {
+          "level": "H3",
+          "text": "Grid Architect"
+        },
+        {
+          "level": "H3",
+          "text": "Scout360"
+        },
+        {
+          "level": "H3",
+          "text": "FlowSessions"
+        },
+        {
+          "level": "H3",
+          "text": "Until We Meet Again"
+        },
+        {
+          "level": "H3",
+          "text": "Until We Meet Again"
+        },
+        {
+          "level": "H3",
+          "text": "A Small Gap in Time"
+        },
+        {
+          "level": "H3",
+          "text": "My Body Knows Things"
+        },
+        {
+          "level": "H3",
+          "text": "Ocean View"
+        },
+        {
+          "level": "H3",
+          "text": "The Sun Returned"
+        },
+        {
+          "level": "H3",
+          "text": "Lucky Boy"
+        },
+        {
+          "level": "H3",
+          "text": "Until We Meet Again"
+        },
+        {
+          "level": "H3",
+          "text": "A Small Gap in Time"
+        },
+        {
+          "level": "H3",
+          "text": "My Body Knows Things"
+        },
+        {
+          "level": "H3",
+          "text": "Ocean View"
+        },
+        {
+          "level": "H3",
+          "text": "The Sun Returned"
+        },
+        {
+          "level": "H3",
+          "text": "Lucky Boy"
+        },
+        {
+          "level": "H3",
+          "text": "Until We Meet Again"
+        },
+        {
+          "level": "H3",
+          "text": "A Small Gap in Time"
+        },
+        {
+          "level": "H3",
+          "text": "My Body Knows Things"
+        },
+        {
+          "level": "H3",
+          "text": "Ocean View"
+        },
+        {
+          "level": "H3",
+          "text": "The Sun Returned"
+        },
+        {
+          "level": "H3",
+          "text": "Lucky Boy"
+        },
+        {
+          "level": "H3",
+          "text": "Until We Meet Again"
+        },
+        {
+          "level": "H3",
+          "text": "A Small Gap in Time"
+        },
+        {
+          "level": "H3",
+          "text": "My Body Knows Things"
+        },
+        {
+          "level": "H3",
+          "text": "Ocean View"
+        },
+        {
+          "level": "H3",
+          "text": "The Sun Returned"
+        },
+        {
+          "level": "H3",
+          "text": "Lucky Boy"
+        },
+        {
+          "level": "H3",
+          "text": "Until We Meet Again"
+        },
+        {
+          "level": "H3",
+          "text": "A Small Gap in Time"
+        },
+        {
+          "level": "H3",
+          "text": "My Body Knows Things"
+        },
+        {
+          "level": "H3",
+          "text": "Ocean View"
+        },
+        {
+          "level": "H3",
+          "text": "The Sun Returned"
+        },
+        {
+          "level": "H3",
+          "text": "Lucky Boy"
+        },
+        {
+          "level": "H3",
+          "text": "Pricing"
+        },
+        {
+          "level": "H3",
+          "text": "Without a Google AI Subscription"
+        },
+        {
+          "level": "H3",
+          "text": "Google AI Plus"
+        },
+        {
+          "level": "H3",
+          "text": "Google AI Pro"
+        },
+        {
+          "level": "H3",
+          "text": "Google AI Ultra"
+        },
+        {
+          "level": "H3",
+          "text": "Google AI Ultra"
+        },
+        {
+          "level": "H2",
+          "text": "Questions?"
         }
       ],
       "modelTexts": [
-        "For a limited time, explore Gemini Omni Flash for 50% fewer credits. Ends 6/1.",
-        "Introducing Gemini Omni Flash",
-        "Try Omni now"
+        "Models",
+        "Our Models",
+        "Gemini Omni",
+        "Create and edit videos from any input reference — real or generated. Omni is a leap forward in world understanding, multimodality, and conversational editing.",
+        "Nano Banana",
+        "Veo 3.1",
+        "Veo delivers expanded creative controls, native audio, and quality videos. It excels in physics, realism and prompt adherence.",
+        "Gemini Omni Flash",
+        "Nano Banana Pro"
       ],
-      "ratioTexts": [
-        "Cinematic realism, powerful editing, world knowledge: try our latest video generation model! For a limited time, explore the new model for 50% fewer credits. Ends 6/1.",
-        "31 mai, 04:58",
-        "31 mai, 04:45",
-        "31 mai, 04:44"
-      ]
+      "ratioTexts": []
     }
   },
   "imageGeneration": {
