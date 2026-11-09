@@ -6,10 +6,12 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "gui": "node src/gui/server.js",
     "test": "node scripts/test-flow-image.sh",
     "discover": "node -e \"console.log('Run: bash scripts/test-flow-image.sh')\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@modelcontextprotocol/sdk": "^1.9.0",
     "playwright": "^1.51.0",
     "zod": "^3.24.0"

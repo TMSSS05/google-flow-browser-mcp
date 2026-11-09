@@ -2,6 +2,7 @@ import { logger } from '../utils/logger.js';
 import { getPage, isBrowserConnected } from '../browser/connect.js';
 import { jobQueue } from '../queue/job-queue.js';
 import { get } from '../utils/config.js';
+import { readSignedInEmail } from '../browser/account-check.js';
 
 const EXPECTED_ACCOUNT = get('expectedAccount', 'your-email@gmail.com');
 
@@ -21,15 +22,14 @@ export async function handleFlowStatus() {
       const page = getPage();
       status.currentUrl = page.url();
       status.pageTitle = await page.title();
-      status.flowAccessible = status.currentUrl?.includes('labs.google') || false;
       status.oauthRequired = status.currentUrl?.includes('accounts.google.com') || false;
 
-      if (status.flowAccessible && !status.oauthRequired) {
-        const accountEl = await page.$('[data-account-email], [aria-label*="gmail"]');
-        if (accountEl) {
-          status.account = await accountEl.textContent();
-        }
+      if (!status.oauthRequired) {
+        status.account = await readSignedInEmail(page);
       }
+      // Flow is usable once we're on a Flow host AND signed in (the public /about page has no account)
+      const onFlowHost = /flow\.google\.com|labs\.google/.test(status.currentUrl || '');
+      status.flowAccessible = onFlowHost && !!status.account;
     } catch (err) {
       status.browserError = err.message;
     }

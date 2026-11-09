@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Affiliate Studio</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --text: #1c1c1a; --muted: #6b6b66;
+    --border: #e2e2dc; --accent: #2f6fde; --accent-soft: #e8f0fd; --accent-text: #fff;
+    --warn: #b4530a; --warn-bg: #fff4e5; --ok: #1d7a3e; --err: #b42318; --err-bg: #fdecea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1e1e1c; --text: #ecece8; --muted: #9a9a93;
+      --border: #33332f; --accent: #5b8ff0; --accent-soft: #1f2a40; --accent-text: #fff;
+      --warn: #f0a35b; --warn-bg: #2e2216; --ok: #5cc884; --err: #f08b80; --err-bg: #2e1715;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  /* Desktop: page is exactly one screen tall; each column scrolls on its own */
+  main { margin: 0 auto; padding: 16px 24px; height: 100vh; display: flex; flex-direction: column; }
+  .layout { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; }
+  /* Left column: config scrolls, the prompt/action bar stays pinned at the bottom */
+  .col-config { height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+  .col-config .panel { margin-bottom: 0; }
+  /* Only as tall as its content; scrolls if the screen is short */
+  .config-panel { flex: 0 1 auto; overflow-y: auto; min-height: 0; }
+  .action-panel { flex: none; box-shadow: 0 -4px 16px rgb(0 0 0 / .06); }
+  .action-panel textarea { min-height: 72px; }
+  .col-results { height: 100%; min-height: 0; overflow-y: auto; }
+  .col-results .panel { margin-bottom: 0; min-height: 100%; }
+  @media (max-width: 900px) {
+    main { height: auto; }
+    .layout { grid-template-columns: minmax(0, 1fr); }
+    .col-config, .col-results { height: auto; overflow: visible; }
+    .config-panel { overflow: visible; }
+  }
+
+  /* Reference image tiles */
+  .ref-tag {
+    position: absolute; left: 6px; bottom: 6px; padding: 1px 7px; border-radius: 999px;
+    background: rgb(0 0 0 / .6); color: #fff; font-size: 11px; font-weight: 600;
+  }
+  .ref {
+    position: relative; width: 112px; height: 112px; flex: none; border: 1.5px dashed var(--border); border-radius: 10px;
+    background: var(--bg); cursor: pointer; overflow: hidden; display: grid; place-items: center;
+  }
+  .ref:hover, .ref:focus-visible, .ref.drag { border-color: var(--accent); outline: none; }
+  .ref.filled { border-style: solid; }
+  .ref-empty { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: 13px; color: var(--muted); padding: 8px; }
+  .ref-empty b { color: var(--text); font-weight: 600; }
+  .ref-plus { font-size: 22px; line-height: 1; color: var(--accent); }
+  .ref img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ref-remove {
+    position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; padding: 0; border-radius: 50%;
+    border: none; background: rgb(0 0 0 / .6); color: #fff; font-size: 16px; line-height: 26px;
+  }
+  .ref.busy::after { content: "Đang tải…"; position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / .45); color: #fff; font-size: 13px; }
+
+  .ref-count { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+  .ref-count.warn { color: var(--warn); }
+
+  /* Small reference-image tile inside each option card */
+  .group-ref { display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+  .group-ref small { font-size: 12px; color: var(--muted); }
+  .ref.ref-sm { width: 56px; height: 56px; border-radius: 8px; }
+  .ref-sm .ref-empty { padding: 2px; font-size: 11px; gap: 0; }
+  .ref-sm .ref-plus { font-size: 16px; }
+  .ref-sm .ref-tag { display: none; }
+  .ref-sm .ref-remove { top: 2px; right: 2px; width: 20px; height: 20px; font-size: 13px; line-height: 20px; }
+
+  /* Option groups as a grid of small cards */
+  /* 7 cards: 4 columns → 4 + 3, 2 columns → 2+2+2+1. The last card spans 2 so no row has a gap. */
+  .config-panel { container-type: inline-size; }
+  .groups-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .groups-grid .group:last-child { grid-column: span 2; }
+  @container (max-width: 860px) { .groups-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (max-width: 460px) {
+    .groups-grid { grid-template-columns: minmax(0, 1fr); }
+    .groups-grid .group:last-child { grid-column: auto; }
+  }
+  header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; }
+  .status { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--ok); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .panel-head h2 { margin: 0; font-size: 15px; }
+  .presets { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .presets select { width: auto; max-width: 200px; padding: 5px 8px; font-size: 13px; }
+
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input[type=text], textarea, select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text); font: inherit;
+  }
+  textarea { min-height: 120px; resize: vertical; padding: 12px; font-size: 14px; }
+  input:focus, textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* Cards in a row share the row height; the reference tile is pinned to the bottom so tiles line up */
+  .group { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; }
+  .group .group-ref { margin-top: auto; }
+  .group .chips { gap: 5px; margin-bottom: 8px; }
+  .group-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .hidden { display: none !important; }
+
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-top: 12px; }
+  .row label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .row select { width: auto; }
+  .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font: inherit; cursor: pointer;
+  }
+  button.small { padding: 5px 10px; font-size: 13px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .5; cursor: progress; }
+  .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .msg { margin-bottom: 16px; padding: 10px 12px; border-radius: 8px; font-size: 14px; display: none; white-space: pre-wrap; }
+  .msg.show { display: block; }
+  .msg.info { background: var(--bg); border: 1px solid var(--border); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); }
+  .msg.err { background: var(--err-bg); color: var(--err); }
+  .msg img { display: block; max-width: 100%; margin-top: 8px; border-radius: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .grid .tile { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--panel); }
+  .grid a { display: block; }
+  .grid .tile.latest { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  /* Download button on top of each image */
+  .dl { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 8px; border: 0; padding: 0;
+        background: rgb(0 0 0 / .55); color: #fff; font-size: 15px; cursor: pointer; opacity: .85; }
+  .dl:hover, .dl:focus-visible { opacity: 1; background: var(--accent); }
+  /* Multi-select: checkbox top-left of each image, sticky bar with the selection */
+  .pick { position: absolute; top: 6px; left: 6px; width: 30px; height: 30px; display: grid; place-items: center;
+          border-radius: 8px; background: rgb(0 0 0 / .45); cursor: pointer; z-index: 1; }
+  .pick input { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--accent); }
+  .is-selected { outline: 3px solid var(--accent); outline-offset: -3px; }
+  .selbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding: 8px 10px; margin-bottom: 12px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--accent); font-size: 14px; }
+  .selbar .grow { flex: 1; }
+  .selbar[hidden] { display: none; }
+  .head-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .grid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .grid span { display: block; padding: 6px 8px; font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Affiliate Studio — Google Flow <a href="/" style="font-size: 14px; font-weight: 400; margin-left: 12px; color: var(--accent)">← Bộ ảnh mũ</a></h1>
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="statusText">Đang kiểm tra…</span>
+      <button id="connectBtn" type="button">Kết nối</button>
+    </div>
+  </header>
+
+  <div class="layout">
+  <div class="col-config">
+  <section class="panel config-panel">
+    <div class="panel-head">
+      <h2>Cấu hình quảng cáo</h2>
+      <div class="presets">
+        <select id="presetSelect" aria-label="Preset đã lưu"><option value="">— Preset đã lưu —</option></select>
+        <button class="small" id="savePresetBtn" type="button">Lưu preset</button>
+        <button class="small" id="deletePresetBtn" type="button">Xoá</button>
+      </div>
+    </div>
+
+    <div class="fields">
+      <label class="field">Tên sản phẩm
+        <input type="text" id="productName" placeholder="VD: Serum vitamin C 30ml">
+      </label>
+      <label class="field">Mô tả / điểm nổi bật (USP)
+        <input type="text" id="productDesc" placeholder="VD: chai thủy tinh hổ phách, nắp bóp vàng">
+      </label>
+      <label class="field hidden" id="characterField">Mô tả nhân vật cố định
+        <input type="text" id="characterDesc" placeholder="VD: Vietnamese woman, 25, long black hair, warm smile">
+      </label>
+      <label class="field hidden" id="headlineField">Headline / CTA trên ảnh
+        <input type="text" id="headline" placeholder="VD: Da sáng sau 7 ngày — Mua ngay">
+      </label>
+    </div>
+
+    <!-- All groups visible at once: one click per choice -->
+    <div class="groups-grid" data-groups="category,character,scene,action,style,platform,text"></div>
+  </section>
+
+  <section class="panel action-panel">
+    <div class="panel-head">
+      <h2>Prompt <span class="ref-count" id="refCount"></span></h2>
+      <button class="small" id="rebuildBtn" type="button">Tạo lại từ cấu hình</button>
+    </div>
+    <textarea id="prompt" rows="3" placeholder="Prompt tự tạo từ cấu hình, sửa tay được… (Ctrl+Enter để kiểm tra)"></textarea>
+    <div class="row">
+      <label>Model <select id="model"></select></label>
+      <label>Tỉ lệ <select id="ratio"></select></label>
+      <label>Số ảnh <select id="quantity"></select></label>
+      <div class="actions">
+        <button id="prepareBtn" type="button" title="Điền prompt và cài đặt vào Flow rồi chụp màn hình — không tốn credit">Kiểm tra (miễn phí)</button>
+        <button id="generateBtn" class="primary" type="button" title="Bấm Generate trong Flow — tốn credit cho mỗi ảnh">Tạo ảnh</button>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <aside class="col-results" aria-label="Kết quả">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Kết quả</h2>
+        <span class="head-actions">
+          <button class="small" id="lastDlBtn" type="button" hidden title="Tải các ảnh của lần tạo gần nhất">⬇ Tải ảnh prompt vừa tạo</button>
+          <button class="small" id="pickAllBtn" type="button">☑ Chọn hết</button>
+          <button class="small" id="refreshGalleryBtn" type="button">Làm mới</button>
+        </span>
+      </div>
+      <div class="msg" id="msg"></div>
+      <div class="grid" id="gallery"></div>
+    </section>
+  </aside>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const PREFS_KEY = 'flow-gui-prefs';
+const PRESETS_KEY = 'flow-gui-presets';
+
+// ---- Ad configurator: each option carries the English prompt fragment it contributes ----
+// Flow has no 4:5 ratio, so Instagram uses 3:4 (closest portrait).
+const GROUPS = [
+  { key: 'category', title: '1. Loại sản phẩm', options: [
+    { id: 'fashion', label: 'Thời trang', text: 'fashion product' },
+    { id: 'beauty', label: 'Mỹ phẩm / skincare', text: 'beauty / skincare product' },
+    { id: 'home', label: 'Đồ gia dụng', text: 'home appliance / household product' },
+    { id: 'tech', label: 'Công nghệ', text: 'tech gadget' },
+    { id: 'food', label: 'Thực phẩm / đồ uống', text: 'food or beverage product' },
+  ]},
+  { key: 'character', title: '2. Nhân vật', options: [
+    { id: 'none', label: 'Không có nhân vật', text: '' },
+    { id: 'woman', label: 'Nữ, trưởng thành', text: 'an adult woman' },
+    { id: 'man', label: 'Nam, trưởng thành', text: 'an adult man' },
+    { id: 'couple', label: 'Cặp đôi trưởng thành', text: 'an adult couple' },
+    { id: 'fixed', label: 'Nhân vật ảo nhất quán', text: '' }, // uses #characterDesc
+  ]},
+  { key: 'scene', title: '3. Bối cảnh', options: [
+    { id: 'studio', label: 'Studio chuyên nghiệp', text: 'in a professional photo studio with seamless backdrop' },
+    { id: 'home', label: 'Phòng ngủ / phòng khách', text: 'in a cozy, tidy bedroom or living room' },
+    { id: 'cafe', label: 'Quán cà phê', text: 'in a bright, stylish café' },
+    { id: 'outdoor', label: 'Ngoài trời', text: 'outdoors in natural daylight' },
+    { id: 'ecom', label: 'Nền thương mại điện tử', text: 'on a clean pure white e-commerce background' },
+  ]},
+  { key: 'action', title: '4. Hành động', options: [
+    { id: 'using', label: 'Đang sử dụng sản phẩm', person: 'naturally using the product', solo: 'the product shown in use' },
+    { id: 'holding', label: 'Cầm sản phẩm giới thiệu', person: 'holding the product toward the camera, presenting it', solo: 'the product presented front and center' },
+    { id: 'unbox', label: 'Unbox sản phẩm', person: 'unboxing the product with excitement', solo: 'the product sitting in its opened packaging' },
+    { id: 'lifestyle', label: 'Tạo dáng lifestyle', person: 'posing casually in a lifestyle moment with the product', solo: 'the product styled in a lifestyle arrangement with props' },
+    { id: 'product', label: 'Chỉ chụp sản phẩm', person: null, solo: 'product-only hero shot, no people' },
+  ]},
+  { key: 'style', title: '5. Phong cách', options: [
+    { id: 'ugc', label: 'UGC tự nhiên', text: 'authentic UGC style, shot on a smartphone, natural imperfect lighting, candid' },
+    { id: 'commercial', label: 'Studio thương mại', text: 'high-end commercial studio photography, softbox lighting, crisp detail' },
+    { id: 'luxury', label: 'Luxury / editorial', text: 'luxury editorial magazine style, elegant composition, refined color grading' },
+    { id: 'cinematic', label: 'Cinematic', text: 'cinematic look, dramatic lighting, shallow depth of field, film color grade' },
+    { id: 'review', label: 'Ảnh review mạng xã hội', text: 'social media review photo, relatable and trustworthy, eye-level framing' },
+  ]},
+  { key: 'platform', title: '6. Nền tảng', options: [
+    { id: 'tiktok', label: 'TikTok — 9:16', ratio: '9:16', text: 'vertical composition for TikTok, subject centered with space at top and bottom' },
+    { id: 'instagram', label: 'Instagram — 3:4', ratio: '3:4', text: 'portrait composition for an Instagram feed post' },
+    { id: 'facebook', label: 'Facebook — 1:1', ratio: '1:1', text: 'square composition for a Facebook feed post' },
+    { id: 'shopee', label: 'Shopee — 1:1', ratio: '1:1', text: 'square marketplace product listing image, product fills most of the frame' },
+  ]},
+  { key: 'text', title: '7. Chữ trên ảnh', options: [
+    { id: 'none', label: 'Không chữ', text: 'no text, no logos added, no watermark' },
+    { id: 'headline', label: 'Headline ngắn', text: 'with a short bold headline text: "{headline}", leave clean space for it' },
+    { id: 'cta', label: 'Headline + CTA', text: 'with a bold headline and call-to-action text: "{headline}", clear readable typography' },
+  ]},
+];
+
+const DEFAULTS = { category: 'beauty', character: 'woman', scene: 'studio', action: 'holding', style: 'commercial', platform: 'tiktok', text: 'none' };
+let config = { ...DEFAULTS };
+// One optional reference image per option group, keyed by group key: {url, name} | null.
+// Attached to Flow in GROUPS order.
+const REF_ORDER = GROUPS.map(g => g.key);
+const EMPTY_REFS = Object.fromEntries(REF_ORDER.map(k => [k, null]));
+let refs = { ...EMPTY_REFS };
+let promptEdited = false; // stop auto-overwriting once the user edits the prompt by hand
+
+const opt = (key, id) => GROUPS.find(g => g.key === key).options.find(o => o.id === id);
+
+function renderGroups() {
+  // Each [data-groups="a,b"] container gets one labeled row of chips per group
+  for (const root of document.querySelectorAll('[data-groups]')) {
+    root.innerHTML = '';
+    for (const key of root.dataset.groups.split(',')) {
+      const g = GROUPS.find(x => x.key === key);
+      const title = g.title.replace(/^\d+\.\s*/, ''); // steps are numbered already
+      const wrap = document.createElement('div');
+      wrap.className = 'group';
+      wrap.innerHTML = `<div class="group-title">${title}</div><div class="chips" role="group" aria-label="${title}"></div>`;
+      const chips = wrap.querySelector('.chips');
+      for (const o of g.options) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip';
+        b.textContent = o.label;
+        b.setAttribute('aria-pressed', String(config[g.key] === o.id));
+        b.onclick = () => { config[g.key] = o.id; onConfigChange(); };
+        chips.appendChild(b);
+      }
+      if (GROUP_REFS[key]) {
+        const row = document.createElement('div');
+        row.className = 'group-ref';
+        row.appendChild(makeGroupRefTile(key));
+        const note = document.createElement('small');
+        note.textContent = refs[key] && !activeRefs().includes(key)
+          ? `${GROUP_REFS[key].label} — không dùng với lựa chọn hiện tại`
+          : `${GROUP_REFS[key].label} (tuỳ chọn)`;
+        row.appendChild(note);
+        wrap.appendChild(row);
+      }
+      root.appendChild(wrap);
+    }
+  }
+  renderRefs(); // group cards were re-rendered with fresh tiles
+  $('characterField').classList.toggle('hidden', config.character !== 'fixed');
+  $('headlineField').classList.toggle('hidden', config.text === 'none');
+}
+
+function buildPrompt() {
+  const name = $('productName').value.trim();
+  const desc = $('productDesc').value.trim();
+  const category = opt('category', config.category).text;
+  const product = [name || `a ${category}`, desc && `(${desc})`].filter(Boolean).join(' ');
+
+  const charOpt = opt('character', config.character);
+  const person = config.character === 'fixed' ? ($('characterDesc').value.trim() || 'the same recurring brand ambassador') : charOpt.text;
+  const action = opt('action', config.action);
+  const hasPerson = !!person && action.person !== null;
+
+  const subject = hasPerson
+    ? `${person} ${action.person}`
+    : action.solo;
+  const headline = $('headline').value.trim() || 'Mua ngay';
+
+  // One sentence per attached reference, naming its position so the model knows which is which
+  const sent = activeRefs();
+  const refNote = sent.map((k, i) => `the ${sent.length > 1 ? ORDINALS[i] + ' ' : ''}attached image ${GROUP_REFS[k].role}`);
+
+  const parts = [
+    `Advertising photo for ${product}`,
+    `${subject}, ${opt('scene', config.scene).text}`,
+    opt('style', config.style).text,
+    opt('platform', config.platform).text,
+    ...refNote,
+    config.character === 'fixed' && hasPerson && !sent.includes('character') ? 'keep the character\'s face, hairstyle and outfit consistent with previous images' : '',
+    'the product must keep its exact shape, colors, logo and packaging; render it sharp and clearly visible',
+    opt('text', config.text).text.replace('{headline}', headline),
+  ];
+  return parts.filter(Boolean).map(s => s[0].toUpperCase() + s.slice(1) + '.').join(' ');
+}
+
+/**
+ * References that will actually be sent, in attach order. Person-related images (character, pose)
+ * only when the shot has a person; the text-layout image only when text is on.
+ */
+function activeRefs() {
+  const hasPerson = config.character !== 'none' && config.action !== 'product';
+  return REF_ORDER.filter(k => refs[k]
+    && (!['character', 'action'].includes(k) || hasPerson)
+    && (k !== 'text' || config.text !== 'none'));
+}
+
+// Per group: tile caption, tooltip, and the prompt sentence telling the model what the image is for
+const GROUP_REFS = {
+  category: { label: 'Ảnh sản phẩm', tip: 'Ảnh sản phẩm thật — AI giữ đúng hình dáng, màu, logo, bao bì',
+    role: 'is the exact product — reproduce its shape, colors, logo and packaging faithfully' },
+  character: { label: 'Ảnh nhân vật', tip: 'Ảnh khuôn mặt / người mẫu — AI giữ đúng khuôn mặt',
+    role: 'is the person — keep the same face, facial features and hairstyle' },
+  scene: { label: 'Ảnh bối cảnh', tip: 'Ảnh địa điểm / phông nền muốn giữ (VD: cửa hàng của bạn)',
+    role: 'is the location — recreate this setting and background' },
+  action: { label: 'Ảnh tư thế mẫu', tip: 'Ảnh mẫu tư thế / cách cầm sản phẩm — chỉ lấy dáng, không lấy người',
+    role: 'is a pose reference only — copy the body pose and how the product is held, not the person, clothes or product' },
+  style: { label: 'Ảnh phong cách mẫu', tip: 'Ảnh mẫu để học tông màu, ánh sáng (không sao chép nội dung)',
+    role: 'is a style reference only — match its lighting, color grading and mood, but do not copy its subject or products' },
+  platform: { label: 'Ảnh bố cục mẫu', tip: 'Ảnh quảng cáo mẫu trên nền tảng này — AI học cách bố trí khung hình',
+    role: 'is a layout reference only — match its framing and composition, but do not copy its content' },
+  text: { label: 'Ảnh mẫu chữ', tip: 'Ảnh mẫu kiểu chữ / vị trí chữ trên ảnh',
+    role: 'is a typography reference only — place the text in a similar position and style, but use the headline given here, not its words' },
+};
+const ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'];
+
+function renderRefs() {
+  for (const tile of document.querySelectorAll('.ref')) {
+    const r = refs[tile.dataset.ref];
+    const img = tile.querySelector('img');
+    tile.classList.toggle('filled', !!r);
+    tile.querySelector('.ref-empty').hidden = !!r;
+    tile.querySelector('.ref-remove').hidden = !r;
+    tile.querySelector('.ref-tag').hidden = !r;
+    img.hidden = !r;
+    if (r) img.src = r.url; else img.removeAttribute('src');
+  }
+}
+
+async function uploadRef(kind, file) {
+  if (!file) return;
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { showMsg('err', 'Chỉ nhận ảnh JPG, PNG hoặc WEBP.'); return; }
+  const tile = document.querySelector(`.ref[data-ref="${kind}"]`);
+  tile.classList.add('busy');
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', headers: { 'X-Filename': encodeURIComponent(file.name) }, body: file });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    refs[kind] = data;
+    renderRefs();
+    onConfigChange();
+  } catch (e) {
+    showMsg('err', 'Tải ảnh lỗi: ' + e.message);
+  } finally {
+    tile.classList.remove('busy');
+  }
+}
+
+function bindRefTile(tile) {
+  const kind = tile.dataset.ref;
+  const input = tile.querySelector('input[type=file]');
+  tile.addEventListener('click', e => { if (!e.target.closest('.ref-remove')) input.click(); });
+  tile.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+  input.addEventListener('change', () => { uploadRef(kind, input.files[0]); input.value = ''; });
+  tile.querySelector('.ref-remove').addEventListener('click', () => { refs[kind] = null; renderRefs(); onConfigChange(); });
+  tile.addEventListener('dragover', e => { e.preventDefault(); tile.classList.add('drag'); });
+  tile.addEventListener('dragleave', () => tile.classList.remove('drag'));
+  tile.addEventListener('drop', e => { e.preventDefault(); tile.classList.remove('drag'); uploadRef(kind, e.dataTransfer.files[0]); });
+}
+// Small reference-image tile rendered at the bottom of each option card
+function makeGroupRefTile(kind) {
+  const { label, tip } = GROUP_REFS[kind];
+  const tile = document.createElement('div');
+  tile.className = 'ref ref-sm';
+  tile.dataset.ref = kind;
+  tile.tabIndex = 0;
+  tile.setAttribute('role', 'button');
+  tile.setAttribute('aria-label', `Tải ${label.toLowerCase()}`);
+  tile.title = tip;
+  tile.innerHTML = `<input type="file" accept="image/jpeg,image/png,image/webp" hidden>
+    <div class="ref-empty"><span class="ref-plus">+</span><small>Ảnh</small></div>
+    <img alt="${label}" hidden><span class="ref-tag" hidden></span>
+    <button type="button" class="ref-remove" aria-label="Bỏ ${label.toLowerCase()}" hidden>×</button>`;
+  bindRefTile(tile);
+  return tile;
+}
+
+function renderRefCount() {
+  const n = activeRefs().length;
+  const el = $('refCount');
+  el.textContent = n ? `· ${n} ảnh tham chiếu${n > 3 ? ' — nhiều ảnh dễ làm AI trộn lẫn' : ''}` : '';
+  el.classList.toggle('warn', n > 3);
+}
+
+function onConfigChange() {
+  renderGroups();
+  renderRefCount();
+  const ratio = opt('platform', config.platform).ratio;
+  if ([...$('ratio').options].some(o => o.value === ratio)) $('ratio').value = ratio;
+  if (!promptEdited) $('prompt').value = buildPrompt();
+  savePrefs();
+}
+
+// ---- persistence (per-browser conveniences only) ----
+function readStore(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+function writeStore(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ }
+}
+const FORM_FIELDS = ['productName', 'productDesc', 'characterDesc', 'headline'];
+function snapshot() {
+  return { config, refs, fields: Object.fromEntries(FORM_FIELDS.map(f => [f, $(f).value])) };
+}
+function applySnapshot(s) {
+  config = { ...DEFAULTS, ...(s.config || {}) };
+  const saved = { ...(s.refs || {}) };
+  if (saved.product && !saved.category) saved.category = saved.product; // older saves keyed the product image "product"
+  refs = Object.fromEntries(REF_ORDER.map(k => [k, saved[k] || null]));
+  for (const f of FORM_FIELDS) $(f).value = s.fields?.[f] ?? '';
+  renderRefs();
+}
+function savePrefs() {
+  writeStore(PREFS_KEY, { ...snapshot(), model: $('model').value, quantity: $('quantity').value, prompt: $('prompt').value, promptEdited });
+}
+function renderPresets() {
+  const presets = readStore(PRESETS_KEY, {});
+  const sel = $('presetSelect');
+  sel.innerHTML = '<option value="">— Preset đã lưu —</option>';
+  for (const name of Object.keys(presets).sort()) {
+    const o = document.createElement('option');
+    o.value = o.textContent = name;
+    sel.appendChild(o);
+  }
+}
+$('savePresetBtn').onclick = () => {
+  const name = prompt('Tên preset:', $('presetSelect').value || $('productName').value || 'Preset mới');
+  if (!name) return;
+  const presets = readStore(PRESETS_KEY, {});
+  presets[name] = snapshot();
+  writeStore(PRESETS_KEY, presets);
+  renderPresets();
+  $('presetSelect').value = name;
+};
+$('deletePresetBtn').onclick = () => {
+  const name = $('presetSelect').value;
+  if (!name || !confirm(`Xoá preset "${name}"?`)) return;
+  const presets = readStore(PRESETS_KEY, {});
+  delete presets[name];
+  writeStore(PRESETS_KEY, presets);
+  renderPresets();
+};
+$('presetSelect').onchange = () => {
+  const s = readStore(PRESETS_KEY, {})[$('presetSelect').value];
+  if (!s) return;
+  applySnapshot(s);
+  promptEdited = false;
+  onConfigChange();
+};
+
+// ---- server calls ----
+function showMsg(kind, text, imgUrl) {
+  const el = $('msg');
+  el.className = `msg show ${kind}`;
+  el.textContent = text;
+  if (imgUrl) {
+    const img = document.createElement('img');
+    img.src = imgUrl;
+    img.alt = 'Ảnh chụp màn hình Flow';
+    el.appendChild(img);
+  }
+}
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function fillSelect(sel, values, preferred) {
+  sel.innerHTML = '';
+  for (const v of values) {
+    const o = document.createElement('option');
+    o.value = o.textContent = v;
+    sel.appendChild(o);
+  }
+  if (preferred !== undefined && values.map(String).includes(String(preferred))) sel.value = preferred;
+}
+
+async function refreshStatus() {
+  try {
+    const s = await api('/api/status');
+    const ok = s.connected && s.account;
+    $('dot').className = 'dot' + (ok ? ' ok' : '');
+    $('statusText').textContent = !s.connected ? 'Chưa kết nối'
+      : s.account ? s.account + (s.account !== s.expectedAccount ? ` (cần ${s.expectedAccount})` : '')
+      : 'Đã kết nối, chưa thấy tài khoản';
+  } catch {
+    $('statusText').textContent = 'Không gọi được server';
+  }
+}
+
+// ?download=1 makes the server send the file as an attachment, so the page stays put
+const fileDownloadUrl = u => u + (u.includes('?') ? '&' : '?') + 'download=1';
+function startDownload(href) {
+  const a = document.createElement('a');
+  a.href = href;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+function downloadAll(urls, name) {
+  if (urls.length === 1) return startDownload(fileDownloadUrl(urls[0]));
+  const q = new URLSearchParams({ name });
+  for (const u of urls) q.append('f', u);
+  if (urls.length) startDownload('/api/zip?' + q);
+}
+function dlButton(url) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'dl'; b.textContent = '⬇';
+  b.title = b.ariaLabel = 'Tải ảnh này';
+  b.onclick = e => { e.preventDefault(); e.stopPropagation(); startDownload(fileDownloadUrl(url)); };
+  return b;
+}
+// Images of the most recent "Tạo ảnh" run (one prompt), highlighted in the gallery
+let lastRunUrls = [];
+let galleryUrls = [];
+const SELBAR_ANCHOR = () => $('msg');
+
+// ---------- multi-select download ----------
+// Selected image URLs. The same image can show in two lists (batch + gallery): their boxes stay in sync.
+const selected = new Set();
+let lastPicked = null;
+function pickBox(url, container) {
+  container.dataset.url = url;
+  const label = document.createElement('label');
+  label.className = 'pick';
+  label.title = 'Chọn ảnh (Shift+bấm để chọn cả dãy)';
+  label.innerHTML = '<input type="checkbox" aria-label="Chọn ảnh này">';
+  const box = label.querySelector('input');
+  box.checked = selected.has(url);
+  container.classList.toggle('is-selected', box.checked);
+  label.onclick = e => e.stopPropagation();
+  box.onclick = e => {
+    const boxes = [...document.querySelectorAll('.pick input')];
+    // Shift+click: apply this state to every image between the last click and this one
+    if (e.shiftKey && lastPicked && boxes.includes(lastPicked)) {
+      const [a, b] = [boxes.indexOf(lastPicked), boxes.indexOf(box)].sort((x, y) => x - y);
+      for (const other of boxes.slice(a, b + 1)) setPicked(other.closest('[data-url]').dataset.url, box.checked);
+    }
+    setPicked(url, box.checked);
+    lastPicked = box;
+  };
+  return label;
+}
+function setPicked(url, on) {
+  if (on) selected.add(url); else selected.delete(url);
+  for (const el of document.querySelectorAll('[data-url]')) {
+    if (el.dataset.url !== url) continue;
+    el.classList.toggle('is-selected', on);
+    const box = el.querySelector('.pick input');
+    if (box) box.checked = on;
+  }
+  renderSelBar();
+}
+function pickAll(urls) {
+  const allOn = urls.length && urls.every(u => selected.has(u));
+  for (const u of urls) setPicked(u, !allOn);
+}
+// Forget selections whose images are no longer on screen (e.g. after switching hat)
+function pruneSelection() {
+  const shown = new Set([...document.querySelectorAll('[data-url]')].map(el => el.dataset.url));
+  for (const u of [...selected]) if (!shown.has(u)) selected.delete(u);
+  renderSelBar();
+}
+function renderSelBar() {
+  let bar = $('selBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'selBar';
+    bar.className = 'selbar';
+    bar.innerHTML = `<span class="grow">Đã chọn <b></b> ảnh</span>
+      <button class="small primary" type="button" data-act="dl">⬇ Tải ảnh đã chọn</button>
+      <button class="small" type="button" data-act="clear">Bỏ chọn</button>`;
+    bar.querySelector('[data-act="dl"]').onclick = () => downloadAll([...selected], 'flow-selected-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, ''));
+    bar.querySelector('[data-act="clear"]').onclick = () => { for (const u of [...selected]) setPicked(u, false); };
+    SELBAR_ANCHOR().before(bar);
+  }
+  bar.hidden = !selected.size;
+  bar.querySelector('b').textContent = selected.size;
+}
+function renderLastRunButton() {
+  $('lastDlBtn').hidden = !lastRunUrls.length;
+  $('lastDlBtn').textContent = `⬇ Tải ${lastRunUrls.length} ảnh prompt vừa tạo`;
+}
+
+async function refreshGallery() {
+  const items = await api('/api/images').catch(() => []);
+  const g = $('gallery');
+  g.innerHTML = '';
+  galleryUrls = items.map(it => it.url);
+  if (!items.length) { g.innerHTML = '<p class="empty">Chưa có ảnh nào.</p>'; pruneSelection(); return; }
+  for (const it of items) {
+    const tile = document.createElement('div');
+    tile.className = 'tile' + (lastRunUrls.includes(it.url) ? ' latest' : '');
+    const a = document.createElement('a');
+    a.href = it.url; a.target = '_blank'; a.rel = 'noopener';
+    a.innerHTML = `<img loading="lazy" alt=""><span></span>`;
+    a.querySelector('img').src = it.url;
+    a.querySelector('span').textContent = new Date(it.createdAt).toLocaleString('vi-VN');
+    tile.append(a, pickBox(it.url, tile), dlButton(it.url));
+    g.appendChild(tile);
+  }
+  pruneSelection();
+}
+
+function setBusy(b) {
+  for (const id of ['prepareBtn', 'generateBtn', 'connectBtn']) $(id).disabled = b;
+}
+
+async function run(confirmGenerate) {
+  const promptText = $('prompt').value.trim();
+  if (!promptText) { showMsg('err', 'Hãy nhập prompt.'); $('prompt').focus(); return; }
+  const quantity = Number($('quantity').value);
+  if (confirmGenerate && !confirm(`Tạo ${quantity} ảnh (${$('model').value}, ${$('ratio').value})?\nThao tác này sẽ tốn credit.`)) return;
+
+  savePrefs();
+  setBusy(true);
+  showMsg('info', confirmGenerate ? 'Đang tạo ảnh… (có thể mất 1–2 phút)' : 'Đang điền prompt và cài đặt vào Flow…');
+  try {
+    const references = activeRefs().map(k => refs[k].url);
+    const r = await api('/api/generate', { prompt: promptText, model: $('model').value, ratio: $('ratio').value, quantity, references, confirm: confirmGenerate });
+    if (confirmGenerate) {
+      lastRunUrls = r.images || [];
+      renderLastRunButton();
+      showMsg('info', `✅ Đã tạo ${r.image_count} ảnh — ${r.model_used}, ${r.ratio}. Ảnh viền xanh là của prompt này.`);
+      await refreshGallery();
+    } else {
+      const refText = r.reference_images ? ` · ${r.reference_images} ảnh tham chiếu đã gắn` : '';
+      showMsg('warn', `Sẵn sàng, chưa tốn credit. Flow đang hiển thị: ${r.ui_settings}${refText}\nBấm “Tạo ảnh” để generate.`, r.screenshotUrl);
+    }
+  } catch (e) {
+    showMsg('err', 'Lỗi: ' + e.message);
+  } finally {
+    setBusy(false);
+    refreshStatus();
+  }
+}
+
+$('refreshGalleryBtn').onclick = refreshGallery;
+$('pickAllBtn').onclick = () => pickAll(galleryUrls);
+$('lastDlBtn').onclick = () => downloadAll(lastRunUrls, 'flow-prompt-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, ''));
+$('prepareBtn').onclick = () => run(false);
+$('generateBtn').onclick = () => run(true);
+$('rebuildBtn').onclick = () => { promptEdited = false; $('prompt').value = buildPrompt(); savePrefs(); };
+$('connectBtn').onclick = async () => {
+  setBusy(true);
+  $('statusText').textContent = 'Đang kết nối…';
+  try {
+    const r = await api('/api/connect', {});
+    if (r.oauthRequired) showMsg('err', 'Google yêu cầu đăng nhập. Hãy đăng nhập trong cửa sổ trình duyệt rồi thử lại.');
+  } catch (e) {
+    showMsg('err', 'Kết nối lỗi: ' + e.message);
+  } finally {
+    setBusy(false);
+    refreshStatus();
+  }
+};
+$('prompt').addEventListener('input', () => { promptEdited = true; savePrefs(); });
+$('prompt').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) run(false);
+});
+for (const f of FORM_FIELDS) $(f).addEventListener('input', () => { if (!promptEdited) $('prompt').value = buildPrompt(); savePrefs(); });
+for (const id of ['model', 'quantity', 'ratio']) $(id).addEventListener('change', savePrefs);
+
+(async () => {
+  const prefs = readStore(PREFS_KEY, {});
+  if (prefs.config) applySnapshot(prefs);
+  const opts = await api('/api/options').catch(() => ({ models: [], ratios: [], quantities: [1] }));
+  fillSelect($('model'), opts.models, prefs.model ?? 'Nano Banana 2.1');
+  fillSelect($('ratio'), opts.ratios, '1:1');
+  fillSelect($('quantity'), opts.quantities, prefs.quantity ?? 1);
+  renderPresets();
+  promptEdited = !!prefs.promptEdited;
+  if (promptEdited && prefs.prompt) $('prompt').value = prefs.prompt;
+  onConfigChange();
+  refreshStatus();
+  refreshGallery();
+})();
+</script>
+</body>
+</html>

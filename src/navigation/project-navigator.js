@@ -31,7 +31,7 @@ function saveProjects(data) {
  * Returns array of { name, url, fullText }.
  */
 export async function listExistingProjects(page) {
-  const flowUrl = get('flowUrl', 'https://labs.google/fx/fr/tools/flow');
+  const flowUrl = get('flowUrl', 'https://flow.google.com/');
 
   // Navigate to the main Flow page if we're not there, or if we're INSIDE a project
   const currentUrl = page.url();
@@ -79,7 +79,7 @@ export async function listExistingProjects(page) {
  * Returns { url, id, name }.
  */
 export async function createNewProject(page, name) {
-  const flowUrl = get('flowUrl', 'https://labs.google/fx/fr/tools/flow');
+  const flowUrl = get('flowUrl', 'https://flow.google.com/');
 
   // Ensure we're on the main Flow page (not inside a project)
   const currentUrl = page.url();
@@ -90,13 +90,13 @@ export async function createNewProject(page, name) {
 
   logger.info('Creating new project...');
 
-  // Click "Nouveau projet"
-  const newBtnSelectors = [
-    'button:has-text("Nouveau projet")',
-    'a:has-text("Nouveau projet")',
-    '[aria-label*="Nouveau projet"]',
-    'button:has-text("New project")',
-  ];
+  // Click "New project" (label depends on the Google account's UI language)
+  const newProjectLabels = ['Nouveau projet', 'New project', 'Dự án mới'];
+  const newBtnSelectors = newProjectLabels.flatMap(label => [
+    `button:has-text("${label}")`,
+    `a:has-text("${label}")`,
+    `[aria-label*="${label}"]`,
+  ]);
 
   let clicked = false;
   for (const sel of newBtnSelectors) {
@@ -111,15 +111,11 @@ export async function createNewProject(page, name) {
   }
 
   if (!clicked) {
-    // Fallback: try to find any "add" or "new" button
-    const fallback = page.locator('[aria-label*="add"], button:has-text("add"), [class*="fab"]').first();
-    if (await fallback.isVisible().catch(() => false)) {
-      await fallback.click();
-    } else {
-      await takeScreenshot(page, 'no-new-project-btn');
-      throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
-        'Could not find "Nouveau projet" button on the Flow page');
-    }
+    // No generic "add"/fab fallback: on Flow pages those buttons open media menus
+    // or sit next to the prompt composer, and clicking blindly has triggered generations.
+    await takeScreenshot(page, 'no-new-project-btn');
+    throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
+      `Could not find the "new project" button (tried: ${newProjectLabels.join(', ')})`);
   }
 
   await page.waitForTimeout(4000);
@@ -127,48 +123,26 @@ export async function createNewProject(page, name) {
   const projectUrl = page.url();
   logger.info('New project created', { url: projectUrl });
 
-  // If Flow asked for a project name, fill it
-  const nameInputSelectors = [
-    'input[placeholder*="Nom"]',
-    'input[placeholder*="nom"]',
-    'input[placeholder*="name"]',
-    'input[placeholder*="Name"]',
-    '[contenteditable="true"]',
-  ];
+  // If Flow asked for a project name in a dialog, fill it.
+  // ⚠️ Only look INSIDE a dialog: the project page's prompt composer is a
+  // [contenteditable] next to a [type="submit"] Generate button. Filling/submitting
+  // outside a dialog sends the project name as a prompt and consumes credits.
+  const dialog = page.locator('[role="dialog"]:visible').first();
+  if (await dialog.isVisible().catch(() => false)) {
+    const input = dialog.locator('input:visible').first();
+    if (await input.isVisible().catch(() => false)) {
+      const projectName = name ||
+        `Projet ${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+      await input.click();
+      await input.fill(projectName);
+      await page.waitForTimeout(500);
 
-  let named = false;
-  for (const sel of nameInputSelectors) {
-    try {
-      const input = page.locator(sel).first();
-      if (await input.isVisible().catch(() => false)) {
-        const projectName = name ||
-          `Projet ${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-        await input.click();
-        await input.fill(projectName);
-        await page.waitForTimeout(500);
-
-        // Confirm / submit
-        const confirmSelectors = [
-          'button:has-text("Créer")',
-          'button:has-text("Confirmer")',
-          'button:has-text("OK")',
-          'button:has-text("Create")',
-          '[type="submit"]',
-        ];
-        for (const cs of confirmSelectors) {
-          try {
-            const confirmBtn = page.locator(cs).first();
-            if (await confirmBtn.isVisible().catch(() => false)) {
-              await confirmBtn.click();
-              await page.waitForTimeout(2500);
-              break;
-            }
-          } catch { /* continue */ }
-        }
-        named = true;
-        break;
+      const confirmBtn = dialog.locator('button').filter({ hasText: /Créer|Confirmer|OK|Create|Tạo|Xác nhận/ }).first();
+      if (await confirmBtn.isVisible().catch(() => false)) {
+        await confirmBtn.click();
+        await page.waitForTimeout(2500);
       }
-    } catch { /* continue */ }
+    }
   }
 
   let finalUrl = page.url();
@@ -185,7 +159,7 @@ export async function createNewProject(page, name) {
         const link = links[0]; // newest project = first in order
         const href = link.getAttribute('href');
         if (href) {
-          window.location.href = href.startsWith('http') ? href : 'https://labs.google' + href;
+          window.location.href = new URL(href, window.location.origin).href;
           return true;
         }
       }
