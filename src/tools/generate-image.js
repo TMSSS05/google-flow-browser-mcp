@@ -3,6 +3,7 @@ import { getPage } from '../browser/connect.js';
 import { jobQueue } from '../queue/job-queue.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { takeScreenshot } from '../utils/screenshots.js';
+import { flattenPrompt } from '../navigation/prompt-input.js';
 import { prepareDownload, saveMetadata } from '../utils/file-manager.js';
 import { ensureProjectInContext } from '../navigation/project-navigator.js';
 import { applyImageSettings } from '../navigation/generation-settings.js';
@@ -168,13 +169,15 @@ export async function handleGenerateImage(args) {
     await promptInput.fill('');
     await page.waitForTimeout(200);
     // Insert in one go: typing char-by-char exceeds the 30s action timeout on long ad prompts
-    await page.keyboard.insertText(args.prompt);
+    // One line: Flow splits lines into paragraphs and glues them back without spaces
+    const promptText = flattenPrompt(args.prompt);
+    await page.keyboard.insertText(promptText);
     await page.waitForTimeout(500);
     const typed = ((await promptInput.textContent()) || '').replace(/\s+/g, ' ').trim();
-    if (typed !== args.prompt.replace(/\s+/g, ' ').trim()) {
+    if (typed !== promptText.replace(/\s+/g, ' ').trim()) {
       await takeScreenshot(page, 'prompt-mismatch');
       throw new FlowError(ErrorCodes.UNKNOWN_UI_CHANGE,
-        `Prompt in Flow doesn't match what was sent (${typed.length}/${args.prompt.length} chars). Generation aborted.`);
+        `Prompt in Flow doesn't match what was sent (${typed.length}/${promptText.length} chars). Generation aborted.`);
     }
     logger.info('Prompt filled', { promptLength: args.prompt.length });
 

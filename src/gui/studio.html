@@ -215,11 +215,98 @@
   .dl-all-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
   .dl-all-row .section-title { margin: 0; }
   .empty { color: var(--muted); font-size: 14px; grid-column: 1 / -1; margin: 0; }
+
+  /* Layout menu: show/hide + jump to sections */
+  .sec-hidden { display: none !important; }
+  .shell { flex: 1 1 auto; min-height: 0; display: flex; gap: 20px; }
+  .shell > .layout { flex: 1 1 auto; min-width: 0; }
+  .sidebar { flex: 0 0 220px; overflow-y: auto; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+  body.sb-closed .sidebar { display: none; }
+  .sb-grp { margin: 10px 8px 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .sb-grp:first-child { margin-top: 2px; }
+  .sb-item { display: flex; align-items: center; gap: 6px; width: 100%; border: none; background: none; text-align: left; font: inherit; font-size: 14px;
+             color: var(--text); padding: 7px 8px; border-radius: 8px; cursor: pointer; text-decoration: none; }
+  .sb-item:hover { background: var(--bg); }
+  .sb-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .sb-badge { margin-left: auto; min-width: 1.5em; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-text); font-size: 12px; text-align: center; }
+  .sb-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .sb-backdrop { display: none; }
+  .layout-row { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; padding: 0 8px; border-radius: 8px; }
+  .layout-row:hover { background: var(--bg); }
+  .layout-row input { width: 16px; height: 16px; margin: 0; }
+  .layout-row button { border: none; background: none; text-align: left; font: inherit; font-size: 13px; color: var(--text); padding: 5px 0; cursor: pointer; }
+  .layout-row.off button { color: var(--muted); }
+  .layout-foot { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); margin-top: 6px; padding: 8px 8px 2px; font-size: 13px; }
+  #layoutCount { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .sec-flash { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; transition: outline-color .8s; }
+  /* Narrow screens: the menu slides over the page */
+  @media (max-width: 900px) {
+    .shell { display: block; }
+    .sidebar { position: fixed; z-index: 60; top: 0; left: 0; bottom: 0; width: min(280px, 85vw); border-radius: 0 12px 12px 0; box-shadow: 0 0 40px rgb(0 0 0 / .25); }
+    .sb-backdrop:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 55; background: rgb(0 0 0 / .35); }
+  }
+
+  /* Fashion trends dialog */
+  dialog.tdlg { width: min(760px, calc(100vw - 32px)); }
+  .trend-controls, .trend-go { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .trend-controls .field, .trend-go .field { min-width: 120px; }
+  .trend-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 300px; overflow: auto; }
+  .trend-list li { display: grid; grid-template-columns: auto 2.2em 1fr auto 72px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; }
+  .trend-list li.on { border-color: var(--accent); background: var(--accent-soft); }
+  .trend-list .rank { color: var(--muted); text-align: right; }
+  .trend-list .tag a { color: var(--text); font-weight: 600; text-decoration: none; }
+  .trend-list .tag a:hover { text-decoration: underline; }
+  .trend-list .tag small { display: block; color: var(--muted); font-weight: 400; }
+  .trend-list .num { color: var(--muted); text-align: right; white-space: nowrap; }
+  .trend-list svg { width: 72px; height: 24px; }
+  .trend-list .empty-row { display: block; color: var(--muted); border-style: dashed; }
+  .ideas { display: grid; gap: 10px; }
+  .idea { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+  .idea input, .idea textarea { width: 100%; font: inherit; font-size: 13px; }
+  .idea textarea { min-height: 3.2em; resize: vertical; }
+  .idea .why { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--muted); }
+  .idea .acts { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+  .idea .saved { color: var(--ok); font-size: 13px; font-weight: 600; }
+  .idea img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; }
+  .chip .thumb { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; vertical-align: -4px; margin-right: 4px; }
+  @media (max-width: 560px) {
+    .trend-list li { grid-template-columns: auto 1fr auto; }
+    .trend-list .rank, .trend-list svg { display: none; }
+    .idea { grid-template-columns: 1fr; }
+  }
+
+  /* Intro (POV product review) prompt builder */
+  .vkind { margin-bottom: 12px; }
+  .vkind button { padding: 5px 12px; font-size: 13px; }
+  .intro-grid { display: grid; gap: 12px; margin-bottom: 12px; }
+  .intro-group > p { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+  .intro-group > p small { font-weight: 400; color: var(--muted); }
+  #vFinal { white-space: pre-wrap; }
+
+  /* Telegram inbox */
+  .inbox { border-color: var(--accent); margin-bottom: 16px; }
+  .inbox h2 { font-size: 15px; margin: 0; }
+  .inbox-note { color: var(--muted); font-size: 12px; }
+  .inbox-item { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .inbox-item:first-of-type { border-top: none; }
+  .inbox-thumbs { display: flex; align-items: center; gap: 6px; }
+  .inbox-thumbs img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: #fff; }
+  .inbox-thumbs .arrow { color: var(--muted); font-size: 13px; }
+  .inbox-body { min-width: 0; display: grid; gap: 6px; align-content: start; }
+  .inbox-caption { font-size: 12px; color: var(--muted); white-space: pre-wrap; max-height: 4.6em; overflow: hidden; margin: 0; }
+  .inbox-caption.open { max-height: none; }
+  .inbox-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .inbox-state { font-size: 13px; font-weight: 600; }
+  .inbox-state.ok { color: var(--ok); }
+  .inbox-state.err { color: var(--err); font-weight: 500; overflow-wrap: anywhere; }
+  .inbox-state.busy { color: var(--accent); }
+  @media (max-width: 520px) { .inbox-item { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <main>
   <header>
+    <button class="btn sb-toggle" id="sbToggle" type="button" aria-controls="sidebar" aria-expanded="true" title="Ẩn/hiện menu bên trái">☰ Menu</button>
     <h1>Hat Studio</h1>
     <nav aria-label="Trang">
       <a href="/" class="active">Bộ ảnh mũ</a>
@@ -232,6 +319,27 @@
     </div>
   </header>
 
+  <div class="shell">
+  <nav class="sidebar panel" id="sidebar" aria-label="Menu">
+    <p class="sb-grp">Trang</p>
+    <button class="sb-item" type="button" data-sb-tab="shoot">📸 Tạo bộ ảnh</button>
+    <button class="sb-item" type="button" data-sb-tab="characters">👤 Nhân vật</button>
+    <button class="sb-item" type="button" data-sb-tab="products">🧢 Mũ</button>
+    <a class="sb-item" href="/custom">⚙️ Cấu hình tự do</a>
+
+    <p class="sb-grp">Công cụ</p>
+    <button class="sb-item" type="button" id="sbTrend">🔥 Trend thời trang</button>
+    <button class="sb-item" type="button" id="sbIntro">🎬 Video mở đầu</button>
+    <button class="sb-item" type="button" id="sbInbox">📥 Mũ từ Telegram <span class="sb-badge" id="sbInboxBadge" hidden></span></button>
+
+    <p class="sb-grp">Hiện / ẩn &amp; đi tới <span id="layoutCount"></span></p>
+    <div id="layoutList"></div>
+    <div class="layout-foot">
+      <button class="link" type="button" id="layoutShowAll">Hiện tất cả</button>
+      <button class="link" type="button" id="layoutFocus" title="Chỉ giữ Nhân vật, Mũ, Pose và kết quả">Gọn</button>
+    </div>
+  </nav>
+  <div class="sb-backdrop" id="sbBackdrop" hidden></div>
   <div class="layout">
     <div class="col">
       <section class="panel scroll">
@@ -244,17 +352,17 @@
         <!-- ===== Tab: create a shot set ===== -->
         <div data-panel="shoot">
           <div class="pickers section">
-            <div>
+            <div data-sec="chars">
               <div class="row-head"><p class="section-title">Nhân vật</p><button class="link" data-goto="characters">Quản lý</button></div>
               <div class="cards" id="charPicker"></div>
             </div>
-            <div>
-              <div class="row-head"><p class="section-title">Mũ</p><button class="link" data-goto="products">Quản lý</button></div>
+            <div data-sec="hats">
+              <div class="row-head"><p class="section-title">Mũ</p><span><button class="link" id="introBtn" type="button" title="Video POV tay cầm xoay khoe mũ, bắt đầu từ ảnh của mũ đang chọn">🎬 Video mở đầu</button> · <button class="link" data-goto="products">Quản lý</button></span></div>
               <div class="cards" id="productPicker"></div>
             </div>
           </div>
 
-          <div class="section">
+          <div class="section" data-sec="poses">
             <div class="row-head">
               <p class="section-title">Pose — mỗi pose là 1 ảnh</p>
               <span><button class="link" id="posesPopular">Chọn 4 pose phổ biến</button> · <button class="link" id="posesNone">Bỏ chọn</button></span>
@@ -263,24 +371,24 @@
           </div>
 
           <div class="options-grid section">
-            <div>
+            <div data-sec="scenes">
               <div class="group-head"><p class="section-title">Bối cảnh</p><div class="seg" data-mix-group="scenes" role="radiogroup" aria-label="Cách dùng bối cảnh"></div></div>
               <p class="mix-note" data-mix-note="scenes" hidden></p>
               <div class="chips" id="scenePicker"></div>
             </div>
-            <div>
-              <div class="group-head"><p class="section-title">Trang phục</p><div class="seg" data-mix-group="outfits" role="radiogroup" aria-label="Cách dùng trang phục"></div></div>
+            <div data-sec="outfits">
+              <div class="group-head"><p class="section-title">Trang phục <button class="link" id="trendBtn" type="button" title="Xem hashtag thời trang đang hot trên TikTok và để Gemini gợi ý outfit">🔥 Trend</button></p><div class="seg" data-mix-group="outfits" role="radiogroup" aria-label="Cách dùng trang phục"></div></div>
               <p class="mix-note" data-mix-note="outfits" hidden></p>
               <div class="chips" id="outfitPicker"></div>
             </div>
-            <div>
+            <div data-sec="styles">
               <div class="group-head"><p class="section-title">Phong cách ảnh</p><div class="seg" data-mix-group="styles" role="radiogroup" aria-label="Cách dùng phong cách"></div></div>
               <p class="mix-note" data-mix-note="styles" hidden></p>
               <div class="chips" id="stylePicker"></div>
             </div>
           </div>
 
-          <details class="prompt-preview">
+          <details class="prompt-preview" data-sec="prompt">
             <summary>Xem danh sách ảnh sẽ tạo và prompt</summary>
             <ol class="shot-list" id="shotList"></ol>
             <pre id="promptPreview"></pre>
@@ -304,6 +412,13 @@
     </div>
 
     <aside class="col col-results" aria-label="Kết quả">
+      <section class="panel inbox" id="inboxPanel" data-sec="inbox" hidden aria-live="polite">
+        <div class="row-head" style="margin-bottom: 4px">
+          <h2>📥 Mũ mới từ Telegram</h2>
+          <span class="inbox-note" id="inboxNote"></span>
+        </div>
+        <div id="inboxList"></div>
+      </section>
       <section class="panel">
         <div class="row-head" style="margin-bottom: 12px">
           <h2 style="font-size: 15px; margin: 0">Kết quả</h2>
@@ -313,39 +428,46 @@
           </span>
         </div>
         <div class="msg" id="msg" hidden></div>
-        <div class="dl-all-row" id="batchDlRow" hidden>
+        <div class="dl-all-row" id="batchDlRow" data-sec="batch" hidden>
           <p class="section-title">Loạt vừa tạo</p>
           <span><button class="btn small" id="batchPickBtn" type="button">☑ Chọn hết</button>
           <button class="btn small" id="batchDlBtn" type="button">⬇ Tải tất cả</button></span>
         </div>
-        <div class="shots" id="shots" hidden></div>
-        <div class="dl-all-row">
+        <div class="shots" id="shots" data-sec="batch" hidden></div>
+        <div class="dl-all-row" data-sec="gallery">
           <p class="section-title" id="galleryTitle">Ảnh đã tạo</p>
           <span><button class="btn small" id="galleryPickBtn" type="button" hidden>☑ Chọn hết</button>
           <button class="btn small" id="galleryDlBtn" type="button" hidden>⬇ Tải tất cả</button></span>
         </div>
-        <div class="gallery" id="gallery"></div>
-        <div class="dl-all-row" id="videoGalleryHead" hidden style="margin-top: 18px">
+        <div class="gallery" id="gallery" data-sec="gallery"></div>
+        <div class="dl-all-row" id="videoGalleryHead" data-sec="videos" hidden style="margin-top: 18px">
           <p class="section-title">Video đã tạo</p>
           <span><button class="btn small" id="videoPickBtn" type="button">☑ Chọn hết</button>
           <button class="btn small" id="videoDlBtn" type="button">⬇ Tải tất cả</button></span>
         </div>
-        <div class="gallery" id="videoGallery"></div>
+        <div class="gallery" id="videoGallery" data-sec="videos"></div>
       </section>
     </aside>
+  </div>
   </div>
 </main>
 
 <dialog class="vdlg" id="videoDlg" aria-labelledby="vdlgTitle">
   <form method="dialog" id="videoForm">
     <h2 id="vdlgTitle">🎬 Tạo video từ ảnh</h2>
+    <div class="seg vkind" role="radiogroup" aria-label="Loại video">
+      <button type="button" role="radio" data-vkind="char" aria-checked="true">👤 Nhân vật đội mũ</button>
+      <button type="button" role="radio" data-vkind="intro" aria-checked="false">✋ Mở đầu: review mũ (POV)</button>
+    </div>
     <div class="frames" id="vFrames"></div>
-    <ol class="scene-list" id="vSceneList"></ol>
-    <div class="modes" role="radiogroup" aria-label="Kiểu video">
+    <p class="hint intro-only" id="vIntroHint" hidden>Ảnh là khung hình đầu — nên dùng ảnh mũ (vd ảnh nền trắng). Mỗi ảnh thành 1 video.</p>
+    <ol class="scene-list char-only" id="vSceneList"></ol>
+    <div class="intro-only" id="vIntro" hidden></div>
+    <div class="modes char-only" role="radiogroup" aria-label="Kiểu video">
       <label><input type="radio" name="vmode" value="each" checked> <span id="vEachLabel">Mỗi ảnh thành 1 video (ảnh là khung hình đầu)</span></label>
       <label id="vPairLabel"><input type="radio" name="vmode" value="pair"> Chuyển cảnh: ảnh 1 → ảnh 2 (1 video, cần chọn đúng 2 ảnh)</label>
     </div>
-    <div class="field">
+    <div class="field char-only">
       <div class="act-head">
         <span id="vActLabel">Hành động — bấm theo thứ tự muốn diễn, chọn nhiều được (bấm lại để bỏ)</span>
         <button class="btn small" type="button" id="vCopyAll" hidden title="Dùng các hành động của cảnh đang chọn cho mọi cảnh">Chép sang mọi cảnh</button>
@@ -362,7 +484,7 @@
       </div>
       <p class="pace" id="vPace"></p>
     </div>
-    <div class="row2">
+    <div class="row2 char-only">
       <label class="field">Máy quay <select id="vCamera"></select></label>
       <label class="field">Nhịp độ <select id="vSpeed"></select></label>
     </div>
@@ -372,12 +494,13 @@
         <textarea id="vPrompt" rows="2" placeholder="vd: gió nhẹ thổi tóc, nắng chiều vàng"></textarea>
         <button class="btn small" type="button" id="vTranslate" title="Dịch sang tiếng Anh">🌐 Dịch</button>
       </div>
-      <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="vKeep" checked> Giữ nguyên khuôn mặt và chiếc mũ, không chữ trên video</label>
+      <label class="char-only" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="vKeep" checked> Giữ nguyên khuôn mặt và chiếc mũ, không chữ trên video</label>
       <label style="display:flex; gap:6px; align-items:center" title="Tắt: Flow trả video không tiếng (tránh lỗi &quot;Không tạo được âm thanh&quot;)"><input type="checkbox" id="vAudio"> Có âm thanh (AI tự tạo tiếng — đôi khi bị lỗi)</label>
     </div>
-    <details>
+    <details id="vFinalBox">
       <summary>Câu lệnh sẽ gửi cho Flow</summary>
       <p id="vFinal"></p>
+      <button class="btn small" type="button" id="vCopyPrompt">📋 Chép câu lệnh</button>
     </details>
     <div class="row3">
       <label class="field">Model <select id="vModel"></select></label>
@@ -390,6 +513,47 @@
       <button class="btn" type="button" id="vCheck" title="Điền video đầu tiên vào Flow và đọc số credit Flow báo — chưa tạo gì">Kiểm tra trên Flow (miễn phí)</button>
       <button class="btn primary" type="button" id="vGo" disabled>Tạo video</button>
     </div>
+  </form>
+</dialog>
+
+<dialog class="vdlg tdlg" id="trendDlg" aria-labelledby="tdlgTitle">
+  <form method="dialog">
+    <h2 id="tdlgTitle">🔥 Trend thời trang → outfit</h2>
+    <div class="trend-controls">
+      <label class="field">Quốc gia <select id="tCountry"></select></label>
+      <label class="field">Khoảng <select id="tPeriod"><option value="7">7 ngày</option><option value="30">30 ngày</option><option value="120">120 ngày</option></select></label>
+      <button class="btn" type="button" id="tRefresh">⟳ Tải trend mới</button>
+    </div>
+    <p class="hint" id="tMeta"></p>
+
+    <section>
+      <div class="act-head">
+        <p class="section-title" style="margin:0">Hashtag TikTok <small id="tTtCount"></small></p>
+        <label class="hint" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="tApparel"> Chỉ ngành thời trang</label>
+      </div>
+      <p class="pace warn" id="tLimited" hidden>TikTok chỉ hiện 3 hashtag khi chưa đăng nhập. Đăng nhập tài khoản <b>TikTok for Business</b> (miễn phí) trong cửa sổ Chrome tự động tại ads.tiktok.com rồi bấm "Tải trend mới" để xem nhiều hơn.</p>
+      <ul class="trend-list" id="tTiktok"></ul>
+    </section>
+
+    <section>
+      <p class="section-title" style="margin:0 0 6px">Đang được tìm nhiều trên Google <small class="hint">(chọn từ khoá liên quan thời trang)</small></p>
+      <div class="chips" id="tGoogle"></div>
+    </section>
+
+    <div class="field">
+      <span>Thêm hashtag / từ khoá của bạn (cách nhau bằng dấu phẩy)</span>
+      <input type="text" id="tCustom" placeholder="vd: #outfitdimuabien, baby tee, quiet luxury">
+    </div>
+
+    <div class="trend-go">
+      <label class="field">Số gợi ý <select id="tCount"><option>6</option><option selected>8</option><option>10</option></select></label>
+      <button class="btn primary" type="button" id="tSuggest">✨ Gợi ý outfit bằng Gemini</button>
+      <span class="hint" id="tPicked"></span>
+    </div>
+    <div class="msg" id="tMsg" hidden></div>
+    <div class="ideas" id="tIdeas"></div>
+
+    <div class="foot"><button class="btn" type="button" id="tClose">Đóng</button></div>
   </form>
 </dialog>
 
@@ -545,6 +709,11 @@ function renderGroup(group, rootId) {
     b.className = 'chip' + (o.custom ? ' custom' : '');
     b.setAttribute('aria-pressed', String(on));
     b.innerHTML = `<span class="check">${on ? '✓' : '+'}</span>`;
+    if (o.image) {
+      const t = document.createElement('img');
+      t.className = 'thumb'; t.src = o.image; t.alt = '';
+      b.append(t);
+    }
     b.append(o.label);
     if (o.custom) {
       b.title = o.text;
@@ -763,6 +932,7 @@ function buildPrompt(shot) {
     wears ? '' : `The hat being held is ${hat}.`,
     `The first ${n === 1 ? 'attached image shows' : `${n} attached images show`} the character — keep exactly the same face, glasses, hairstyle and bangs.`,
     `The next ${m === 1 ? 'attached image shows' : `${m} attached images show`} the hat — reproduce its exact shape, color, brim, stitching, logo and text.`,
+    shot.outfit.image ? 'The last attached image is a flat lay of the outfit — dress the person in exactly these clothes.' : '',
     `${style}.`,
     'No added text, no watermark.',
   ].filter(Boolean).join(' ');
@@ -845,6 +1015,7 @@ function openTab(name, { fresh = false } = {}) {
   for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t.dataset.tab === name));
   for (const p of document.querySelectorAll('[data-panel]')) p.hidden = p.dataset.panel !== name;
   $('actionBar').hidden = name !== 'shoot';
+  if (typeof syncSidebarTabs === 'function') syncSidebarTabs();
   if (editors[name] && fresh) editors[name].edit(null);
 }
 for (const t of document.querySelectorAll('.tab')) t.onclick = () => openTab(t.dataset.tab);
@@ -1069,7 +1240,10 @@ function renderSelBar() {
     bar.innerHTML = `<span class="grow">Đã chọn <b></b> ảnh</span>
       <button class="btn small" type="button" data-act="video" title="Dùng các ảnh đã chọn làm khung hình đầu cho video">🎬 Tạo video</button>
       <button class="btn small primary" type="button" data-act="dl">⬇ Tải đã chọn</button>
+      <button class="btn small" type="button" data-act="tg" hidden title="Gửi các file đã chọn vào channel Telegram">✈ Gửi Telegram</button>
       <button class="btn small" type="button" data-act="clear">Bỏ chọn</button>`;
+    bar.querySelector('[data-act="tg"]').onclick = sendSelectedToTelegram;
+    api('/api/telegram').then(t => { bar.querySelector('[data-act="tg"]').hidden = !t.enabled; }).catch(() => {});
     bar.querySelector('[data-act="dl"]').onclick = () => downloadAll([...selected], 'flow-selected-' + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, ''));
     bar.querySelector('[data-act="video"]').onclick = openVideoDialog;
     bar.querySelector('[data-act="clear"]').onclick = () => { for (const u of [...selected]) setPicked(u, false); };
@@ -1079,6 +1253,501 @@ function renderSelBar() {
   // Only still images can be video frames
   bar.querySelector('[data-act="video"]').disabled = ![...selected].some(isImageUrl);
   bar.querySelector('b').textContent = selected.size;
+}
+
+// ---------- Telegram inbox: new hat post → approve → Gemini white background → new hat ----------
+const inboxSeen = new Map(); // id -> status last rendered (re-render only on change, keeps typed names)
+let inboxFirstLoad = true;
+function inboxThumb(src, alt) {
+  const img = document.createElement('img');
+  img.src = src; img.alt = alt; img.loading = 'lazy';
+  img.onclick = () => window.open(src, '_blank', 'noopener');
+  img.style.cursor = 'zoom-in';
+  return img;
+}
+function renderInboxItem(it) {
+  const el = document.createElement('div');
+  el.className = 'inbox-item';
+  el.dataset.id = it.id;
+
+  const thumbs = document.createElement('div');
+  thumbs.className = 'inbox-thumbs';
+  thumbs.append(inboxThumb(it.images[0], 'Ảnh gốc từ Telegram'));
+  if (it.result) {
+    const arrow = document.createElement('span');
+    arrow.className = 'arrow'; arrow.textContent = '→';
+    thumbs.append(arrow, inboxThumb(it.result, 'Mũ trên nền trắng'));
+  }
+
+  const body = document.createElement('div');
+  body.className = 'inbox-body';
+  const name = document.createElement('input');
+  name.type = 'text'; name.value = it.name; name.maxLength = 60;
+  name.setAttribute('aria-label', 'Tên mũ');
+  name.disabled = it.status !== 'new' && it.status !== 'error';
+  body.append(name);
+  if (it.caption) {
+    const cap = document.createElement('p');
+    cap.className = 'inbox-caption'; cap.textContent = it.caption; cap.title = 'Bấm để xem hết';
+    cap.onclick = () => cap.classList.toggle('open');
+    body.append(cap);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'inbox-actions';
+  const btn = (label, cls, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = `btn small ${cls}`; b.textContent = label;
+    b.onclick = async () => { b.disabled = true; try { await fn(); } catch (e) { showMsg('err', e.message); } finally { b.disabled = false; } };
+    return b;
+  };
+  const tag = (text, cls) => { const s = document.createElement('span'); s.className = `inbox-state ${cls}`; s.textContent = text; return s; };
+  const approve = async () => { await api('/api/inbox/approve', { id: it.id, name: name.value }); refreshInbox(); };
+  const dismiss = async () => { await api('/api/inbox/dismiss', { id: it.id }); refreshInbox(); };
+
+  if (it.status === 'new') {
+    actions.append(btn('✅ Đồng ý — tách nền trắng bằng Gemini', 'primary', approve), btn('Bỏ qua', '', dismiss));
+  } else if (it.status === 'queued') {
+    actions.append(tag('⏳ Đang chờ trình duyệt rảnh…', 'busy'));
+  } else if (it.status === 'processing') {
+    actions.append(tag('⚙ Gemini đang tách mũ ra nền trắng… (1–3 phút)', 'busy'));
+  } else if (it.status === 'done') {
+    actions.append(tag('✓ Đã thêm vào danh sách mũ', 'ok'), btn('Dùng mũ này để tạo ảnh', 'primary', async () => {
+      await loadStudio();
+      useInboxProduct(it.productId);
+      await api('/api/inbox/dismiss', { id: it.id });
+      refreshInbox();
+    }), btn('🎬 Video mở đầu', '', async () => {
+      await loadStudio();
+      if (studio.products.some(p => p.id === it.productId)) { state.productId = it.productId; renderShoot(); }
+      openVideoDialog({ frames: [it.result], kind: 'intro' });
+    }), btn('Ẩn', '', dismiss));
+  } else if (it.status === 'error') {
+    actions.append(tag('Lỗi: ' + (it.error || 'không rõ'), 'err'), btn('Thử lại', 'primary', approve), btn('Bỏ qua', '', dismiss));
+  }
+  body.append(actions);
+  el.append(thumbs, body);
+  return el;
+}
+function useInboxProduct(productId) {
+  if (!studio.products.some(p => p.id === productId)) return showMsg('err', 'Mũ này không còn trong danh sách.');
+  state.productId = productId;
+  openTab('shoot');
+  renderShoot();
+  refreshGallery();
+  showMsg('info', 'Đã chọn mũ mới. Chọn nhân vật + pose rồi bấm "Tạo ảnh".');
+}
+async function refreshInbox() {
+  let data;
+  try { data = await api('/api/inbox'); } catch { return; }
+  const items = data.items || [];
+  const panel = $('inboxPanel'), list = $('inboxList');
+  panel.hidden = !items.length;
+  $('inboxNote').textContent = data.watching ? 'đang theo dõi channel' : 'chưa theo dõi (thiếu TELEGRAM_BOT_TOKEN?)';
+
+  let becameDone = false, fresh = 0;
+  const ids = new Set(items.map(i => i.id));
+  for (const child of [...list.children]) if (!ids.has(child.dataset.id)) { child.remove(); inboxSeen.delete(child.dataset.id); }
+  items.forEach((it, idx) => {
+    const prev = inboxSeen.get(it.id);
+    if (it.status === 'new' && prev === undefined && !inboxFirstLoad) fresh++;
+    if (it.status === 'done' && prev && prev !== 'done') becameDone = true;
+    if (prev === it.status) return;
+    const el = renderInboxItem(it);
+    const old = list.querySelector(`[data-id="${CSS.escape(it.id)}"]`);
+    if (old) old.replaceWith(el); else list.insertBefore(el, list.children[idx] || null);
+    inboxSeen.set(it.id, it.status);
+  });
+  inboxFirstLoad = false;
+
+  const waiting = items.filter(i => i.status === 'new').length;
+  document.title = waiting ? `(${waiting}) Hat Studio` : 'Hat Studio';
+  $('sbInboxBadge').hidden = !waiting;
+  $('sbInboxBadge').textContent = waiting;
+  if (fresh) showMsg('info', `📥 Có ${fresh} mũ mới từ Telegram — xem khung "Mũ mới từ Telegram".`);
+  if (becameDone) { await loadStudio(); renderShoot(); showMsg('info', '✓ Gemini đã tạo xong ảnh mũ nền trắng — bấm "Dùng mũ này để tạo ảnh".'); }
+}
+
+// ---------- fashion trends → outfit ideas ----------
+const COUNTRY_NAMES = { VN: 'Việt Nam', US: 'Mỹ', TH: 'Thái Lan', ID: 'Indonesia', MY: 'Malaysia', PH: 'Philippines', SG: 'Singapore', JP: 'Nhật Bản', KR: 'Hàn Quốc', TW: 'Đài Loan', GB: 'Anh', FR: 'Pháp', DE: 'Đức' };
+let trendData = null;
+const trendPick = { tags: new Set(), searches: new Set() };
+const tPrefs = readStore('hatStudio.trends', { country: 'VN', period: 7, apparel: false });
+const compact = n => Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(n || 0);
+
+function sparkline(values) {
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 72 24');
+  svg.setAttribute('aria-hidden', 'true');
+  if (values.length > 1) {
+    const max = Math.max(...values, 1);
+    const pts = values.map((v, i) => `${(i / (values.length - 1)) * 70 + 1},${22 - (v / max) * 20}`).join(' ');
+    const line = document.createElementNS(svgNS, 'polyline');
+    line.setAttribute('points', pts);
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', 'var(--accent)');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-linejoin', 'round');
+    svg.append(line);
+  }
+  return svg;
+}
+
+function customTrendTerms() {
+  return $('tCustom').value.split(',').map(t => t.trim()).filter(Boolean);
+}
+
+function renderTrends() {
+  const d = trendData || {};
+  const country = d.country || tPrefs.country;
+  $('tMeta').textContent = d.fetchedAt
+    ? `Cập nhật ${new Date(d.fetchedAt).toLocaleString('vi-VN')} · ${COUNTRY_NAMES[country] || country} · ${d.period} ngày${d.errors?.length ? ' · Lỗi: ' + d.errors.join(' | ') : ''}`
+    : 'Chưa có dữ liệu — bấm "Tải trend mới" (mở TikTok Creative Center trong Chrome, ~10 giây).';
+
+  const all = d.tiktok?.hashtags || [];
+  const rows = $('tApparel').checked ? all.filter(h => h.apparel) : all;
+  $('tTtCount').textContent = all.length ? `(${rows.length}/${all.length})` : '';
+  $('tLimited').hidden = !d.tiktok?.limited;
+  const list = $('tTiktok');
+  list.innerHTML = '';
+  if (!rows.length) {
+    const li = document.createElement('li');
+    li.className = 'empty-row';
+    li.textContent = all.length ? 'Không có hashtag ngành thời trang trong danh sách này — bỏ lọc hoặc đăng nhập để xem thêm.' : 'Chưa có hashtag.';
+    list.append(li);
+  }
+  for (const h of rows) {
+    const li = document.createElement('li');
+    li.className = trendPick.tags.has(h.name) ? 'on' : '';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = trendPick.tags.has(h.name);
+    box.setAttribute('aria-label', `Chọn #${h.name}`);
+    box.onchange = () => { if (box.checked) trendPick.tags.add(h.name); else trendPick.tags.delete(h.name); renderTrends(); };
+    const rank = document.createElement('span');
+    rank.className = 'rank'; rank.textContent = h.rank ?? '';
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    const a = document.createElement('a');
+    a.href = h.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '#' + h.name;
+    const sub = document.createElement('small');
+    sub.textContent = `${h.industry}${h.rising ? ' · ↑ đang lên' : ' · ↓ giảm'}`;
+    tag.append(a, sub);
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = `${compact(h.posts)} bài · ${compact(h.views)} xem`;
+    li.append(box, rank, tag, num, sparkline(h.curve || []));
+    list.append(li);
+  }
+
+  const g = $('tGoogle');
+  g.innerHTML = '';
+  const items = d.google?.items || [];
+  if (!items.length) g.innerHTML = '<p class="hint">Chưa có dữ liệu.</p>';
+  for (const it of items.slice(0, 25)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.setAttribute('aria-pressed', String(trendPick.searches.has(it.title)));
+    b.title = it.news || it.title;
+    b.textContent = it.traffic ? `${it.title} · ${it.traffic}` : it.title;
+    b.onclick = () => {
+      if (trendPick.searches.has(it.title)) trendPick.searches.delete(it.title); else trendPick.searches.add(it.title);
+      renderTrends();
+    };
+    g.append(b);
+  }
+  const n = trendPick.tags.size + trendPick.searches.size + customTrendTerms().length;
+  $('tPicked').textContent = n ? `${n} xu hướng đã chọn` : 'Chọn hashtag / từ khoá ở trên (hoặc gõ thêm)';
+}
+
+function setTrendMsg(kind, text) {
+  const el = $('tMsg');
+  el.hidden = !text;
+  el.className = `msg ${kind}`;
+  el.textContent = text || '';
+}
+
+function fillCountries(list) {
+  const keep = $('tCountry').value || tPrefs.country;
+  const codes = [...new Set(['VN', ...list])];
+  $('tCountry').innerHTML = '';
+  for (const c of codes) $('tCountry').add(new Option(COUNTRY_NAMES[c] ? `${COUNTRY_NAMES[c]} (${c})` : c, c));
+  $('tCountry').value = codes.includes(keep) ? keep : 'VN';
+}
+
+async function refreshTrends() {
+  const btn = $('tRefresh');
+  btn.disabled = true;
+  btn.textContent = '⟳ Đang tải…';
+  setTrendMsg('info', 'Đang mở TikTok Creative Center trong Chrome…');
+  try {
+    trendData = await api('/api/trends/refresh', { country: $('tCountry').value, period: Number($('tPeriod').value) });
+    setTrendMsg('', '');
+    if (trendData.tiktok?.countries?.length) fillCountries(trendData.tiktok.countries);
+  } catch (e) {
+    setTrendMsg('err', 'Tải trend lỗi: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⟳ Tải trend mới';
+    renderTrends();
+  }
+}
+
+function renderIdeas(ideas) {
+  const box = $('tIdeas');
+  box.innerHTML = '';
+  for (const idea of ideas) {
+    const card = document.createElement('div');
+    card.className = 'idea';
+    const main = document.createElement('div');
+    main.style.display = 'grid';
+    main.style.gap = '6px';
+    const label = document.createElement('input');
+    label.type = 'text'; label.value = idea.label; label.maxLength = 60;
+    label.setAttribute('aria-label', 'Tên outfit');
+    const text = document.createElement('textarea');
+    text.value = idea.text;
+    text.setAttribute('aria-label', 'Mô tả cho AI (tiếng Anh)');
+    main.append(label, text);
+
+    const tags = (idea.tags || []).map(t => (t.startsWith('#') ? t : '#' + t));
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const status = document.createElement('span');
+    const save = async (withImage) => {
+      for (const b of acts.querySelectorAll('button')) b.disabled = true;
+      try {
+        let image;
+        if (withImage) {
+          status.className = 'hint';
+          status.textContent = 'Gemini đang vẽ flat-lay… (~1 phút)';
+          image = (await api('/api/trends/flatlay', { text: text.value })).url;
+          const img = document.createElement('img');
+          img.src = image; img.alt = 'Ảnh flat-lay của outfit';
+          img.onclick = () => window.open(image, '_blank', 'noopener');
+          acts.prepend(img);
+        }
+        const preset = await api('/api/studio/presets', {
+          group: 'outfits', label: label.value.trim(), text: text.value.trim(), image,
+          source: 'trend', note: [idea.why, ...tags].filter(Boolean).join(' '),
+        });
+        await loadStudio();
+        // Select the new outfit (replacing the default "keep current clothes")
+        if (!state.outfits.includes(preset.id)) state.outfits = [...state.outfits.filter(id => id !== 'keep'), preset.id];
+        renderShoot();
+        status.className = 'saved';
+        status.textContent = '✓ Đã lưu vào Trang phục';
+      } catch (e) {
+        status.className = 'hint';
+        status.textContent = 'Lỗi: ' + e.message;
+        for (const b of acts.querySelectorAll('button')) b.disabled = false;
+      }
+    };
+    const b1 = document.createElement('button');
+    b1.type = 'button'; b1.className = 'btn small primary'; b1.textContent = 'Lưu vào Trang phục';
+    b1.onclick = () => save(false);
+    const b2 = document.createElement('button');
+    b2.type = 'button'; b2.className = 'btn small'; b2.textContent = 'Lưu + ảnh flat-lay';
+    b2.title = 'Gemini vẽ ảnh bộ đồ xếp phẳng (không người) — ảnh được gửi kèm cho Flow làm tham chiếu trang phục';
+    b2.onclick = () => save(true);
+    acts.append(b1, b2, status);
+
+    const why = document.createElement('p');
+    why.className = 'why';
+    why.textContent = [idea.why, tags.join(' ')].filter(Boolean).join(' · ');
+    card.append(main, acts, why);
+    box.append(card);
+  }
+}
+
+async function suggestOutfits() {
+  const custom = customTrendTerms();
+  const hashtags = [...trendPick.tags, ...custom.filter(t => t.startsWith('#')).map(t => t.slice(1))];
+  const searches = [...trendPick.searches, ...custom.filter(t => !t.startsWith('#'))];
+  if (!hashtags.length && !searches.length) return setTrendMsg('warn', 'Chọn ít nhất 1 hashtag hoặc từ khoá (hoặc gõ thêm ở ô trên).');
+  const product = selectedProduct();
+  const btn = $('tSuggest');
+  btn.disabled = true;
+  setTrendMsg('info', 'Gemini đang tìm hiểu xu hướng và soạn gợi ý outfit… (thường 30–90 giây)');
+  try {
+    const { ideas } = await api('/api/trends/outfits', {
+      hashtags, searches, count: Number($('tCount').value),
+      hat: product ? `${product.name}${product.description ? ` (${product.description})` : ''}` : '',
+      countryName: COUNTRY_NAMES[$('tCountry').value] || $('tCountry').value,
+    });
+    writeStore('hatStudio.trendIdeas', ideas);
+    renderIdeas(ideas);
+    setTrendMsg('info', `✨ ${ideas.length} gợi ý — sửa tên/mô tả nếu muốn rồi bấm Lưu. Outfit đã lưu nằm trong nhóm "Trang phục".`);
+  } catch (e) {
+    setTrendMsg('err', 'Gợi ý lỗi: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function openTrendDialog() {
+  if (!$('tCountry').options.length) fillCountries(Object.keys(COUNTRY_NAMES));
+  $('tCountry').value = tPrefs.country || 'VN';
+  $('tPeriod').value = String(tPrefs.period || 7);
+  $('tApparel').checked = !!tPrefs.apparel;
+  trendData = await api('/api/trends').catch(() => null);
+  if (trendData?.tiktok?.countries?.length) fillCountries(trendData.tiktok.countries);
+  renderTrends();
+  const last = readStore('hatStudio.trendIdeas', []);
+  if (last.length && !$('tIdeas').children.length) renderIdeas(last);
+  $('trendDlg').showModal();
+}
+
+function setupTrendDialog() {
+  const savePrefs = () => {
+    tPrefs.country = $('tCountry').value;
+    tPrefs.period = Number($('tPeriod').value);
+    tPrefs.apparel = $('tApparel').checked;
+    writeStore('hatStudio.trends', tPrefs);
+  };
+  $('trendBtn').onclick = e => { e.stopPropagation(); openTrendDialog(); };
+  $('tRefresh').onclick = refreshTrends;
+  $('tSuggest').onclick = suggestOutfits;
+  $('tClose').onclick = () => $('trendDlg').close();
+  $('tApparel').onchange = () => { savePrefs(); renderTrends(); };
+  $('tCountry').onchange = savePrefs;
+  $('tPeriod').onchange = savePrefs;
+  $('tCustom').oninput = renderTrends;
+}
+
+// ---------- layout menu: show / hide sections, jump to them ----------
+const SECTIONS = [
+  { group: 'Tạo bộ ảnh', key: 'chars', label: '👤 Nhân vật', tab: 'shoot' },
+  { group: 'Tạo bộ ảnh', key: 'hats', label: '🧢 Mũ', tab: 'shoot' },
+  { group: 'Tạo bộ ảnh', key: 'poses', label: '🤳 Pose', tab: 'shoot' },
+  { group: 'Tạo bộ ảnh', key: 'scenes', label: '🏙 Bối cảnh', tab: 'shoot' },
+  { group: 'Tạo bộ ảnh', key: 'outfits', label: '👗 Trang phục', tab: 'shoot' },
+  { group: 'Tạo bộ ảnh', key: 'styles', label: '🎨 Phong cách ảnh', tab: 'shoot' },
+  { group: 'Tạo bộ ảnh', key: 'prompt', label: '📝 Danh sách ảnh & prompt', tab: 'shoot' },
+  { group: 'Kết quả', key: 'inbox', label: '📥 Mũ mới từ Telegram' },
+  { group: 'Kết quả', key: 'batch', label: '⏳ Loạt vừa tạo' },
+  { group: 'Kết quả', key: 'gallery', label: '🖼 Ảnh đã tạo' },
+  { group: 'Kết quả', key: 'videos', label: '🎬 Video đã tạo' },
+];
+const FOCUS_KEYS = ['chars', 'hats', 'poses', 'inbox', 'batch', 'gallery'];
+let hiddenSecs = new Set(readStore('hatStudio.hiddenSections', []));
+
+function applySections() {
+  for (const el of document.querySelectorAll('[data-sec]')) el.classList.toggle('sec-hidden', hiddenSecs.has(el.dataset.sec));
+  $('layoutCount').textContent = hiddenSecs.size ? `(ẩn ${hiddenSecs.size})` : '';
+  writeStore('hatStudio.hiddenSections', [...hiddenSecs]);
+}
+
+function renderLayoutMenu() {
+  const list = $('layoutList');
+  list.innerHTML = '';
+  let group = null;
+  for (const sec of SECTIONS) {
+    if (sec.group !== group) {
+      group = sec.group;
+      const g = document.createElement('p');
+      g.className = 'grp';
+      g.textContent = group;
+      list.append(g);
+    }
+    const row = document.createElement('div');
+    const on = !hiddenSecs.has(sec.key);
+    row.className = 'layout-row' + (on ? '' : ' off');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = on;
+    box.setAttribute('aria-label', `Hiện ${sec.label}`);
+    box.onchange = () => {
+      if (box.checked) hiddenSecs.delete(sec.key); else hiddenSecs.add(sec.key);
+      applySections();
+      renderLayoutMenu();
+    };
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.textContent = sec.label;
+    go.title = 'Nhảy tới phần này';
+    go.onclick = () => jumpToSection(sec);
+    row.append(box, go);
+    list.append(row);
+  }
+}
+
+const isNarrow = () => window.matchMedia('(max-width: 900px)').matches;
+function setSidebar(open, remember = true) {
+  document.body.classList.toggle('sb-closed', !open);
+  $('sbToggle').setAttribute('aria-expanded', String(open));
+  $('sbBackdrop').hidden = !(open && isNarrow());
+  if (remember && !isNarrow()) writeStore('hatStudio.sidebar', open);
+}
+const closeSidebarIfOverlay = () => { if (isNarrow()) setSidebar(false, false); };
+
+function syncSidebarTabs() {
+  const current = document.querySelector('.tab[aria-selected="true"]')?.dataset.tab;
+  for (const b of document.querySelectorAll('[data-sb-tab]')) {
+    if (b.dataset.sbTab === current) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  }
+}
+
+function jumpToSection(sec) {
+  if (hiddenSecs.has(sec.key)) { hiddenSecs.delete(sec.key); applySections(); renderLayoutMenu(); }
+  if (sec.tab) openTab(sec.tab);
+  const el = [...document.querySelectorAll(`[data-sec="${sec.key}"]`)].find(e => !e.hidden && e.offsetParent !== null);
+  closeSidebarIfOverlay();
+  if (!el) return showMsg('info', `"${sec.label.replace(/^\S+\s/, '')}" hiện chưa có nội dung.`);
+  if (el.tagName === 'DETAILS') el.open = true;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.classList.add('sec-flash');
+  setTimeout(() => el.classList.remove('sec-flash'), 1200);
+}
+
+function setupLayoutMenu() {
+  applySections();
+  renderLayoutMenu();
+  setSidebar(isNarrow() ? false : readStore('hatStudio.sidebar', true) !== false, false);
+  $('sbToggle').onclick = () => setSidebar(document.body.classList.contains('sb-closed'));
+  $('sbBackdrop').onclick = () => setSidebar(false, false);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && isNarrow() && !document.body.classList.contains('sb-closed')) setSidebar(false, false); });
+  window.matchMedia('(max-width: 900px)').addEventListener('change', () => setSidebar(isNarrow() ? false : readStore('hatStudio.sidebar', true) !== false, false));
+
+  for (const b of document.querySelectorAll('[data-sb-tab]')) {
+    b.onclick = () => { openTab(b.dataset.sbTab); closeSidebarIfOverlay(); };
+  }
+  for (const t of document.querySelectorAll('.tab')) t.addEventListener('click', syncSidebarTabs);
+  syncSidebarTabs();
+  $('sbTrend').onclick = () => { closeSidebarIfOverlay(); openTrendDialog(); };
+  $('sbIntro').onclick = () => { closeSidebarIfOverlay(); $('introBtn').click(); };
+  $('sbInbox').onclick = () => jumpToSection(SECTIONS.find(x => x.key === 'inbox'));
+
+  $('layoutShowAll').onclick = () => { hiddenSecs.clear(); applySections(); renderLayoutMenu(); };
+  $('layoutFocus').onclick = () => {
+    hiddenSecs = new Set(SECTIONS.map(x => x.key).filter(k => !FOCUS_KEYS.includes(k)));
+    applySections();
+    renderLayoutMenu();
+  };
+}
+
+async function sendSelectedToTelegram(e) {
+  const btn = e.currentTarget;
+  const files = [...selected];
+  if (!files.length) return;
+  const caption = prompt(`Gửi ${files.length} file vào Telegram.\nChú thích (có thể để trống):`, '');
+  if (caption === null) return; // cancelled
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = '✈ Đang gửi…';
+  try {
+    const r = await api('/api/telegram/send', { files, caption });
+    const failed = r.results.filter(x => !x.ok);
+    if (failed.length) showMsg('err', `Đã gửi ${r.sent}/${r.total}. Lỗi: ${failed.map(f => `${f.file}: ${f.error}`).join(' · ')}`);
+    else showMsg('info', `✈ Đã gửi ${r.sent} file vào Telegram.`);
+  } catch (err) {
+    showMsg('err', 'Gửi Telegram thất bại: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 }
 
 async function refreshGallery() {
@@ -1207,7 +1876,7 @@ function batchRequest(confirmGenerate) {
   return {
     characterId: state.characterId, productId: state.productId,
     model: $('model').value, ratio: $('ratio').value, confirm: confirmGenerate,
-    shots: buildShots().map(s => ({ pose: s.pose.id, label: shotLabel(s), prompt: buildPrompt(s) })),
+    shots: buildShots().map(s => ({ pose: s.pose.id, label: shotLabel(s), prompt: buildPrompt(s), refs: s.outfit.image ? [s.outfit.image] : [] })),
   };
 }
 
@@ -1244,6 +1913,11 @@ $('cancelBtn').onclick = async () => {
 };
 $('refreshBtn').onclick = refreshGallery;
 $('videoPickBtn').onclick = () => pickAll(videoUrls);
+$('introBtn').onclick = () => {
+  const product = selectedProduct();
+  if (!product) return showMsg('err', 'Chọn một mũ trước.');
+  openVideoDialog({ frames: [product.images[0]], kind: 'intro' });
+};
 $('videoDlBtn').onclick = () => downloadAll(videoUrls, `video_${slug(selectedProduct()?.name)}`);
 $('galleryDlBtn').onclick = () => downloadAll(galleryUrls, `hat_${slug(selectedProduct()?.name)}`);
 $('galleryPickBtn').onclick = () => pickAll(galleryUrls);
@@ -1318,8 +1992,223 @@ function withTail(body) {
   return [body, extra, camera, speed, $('vKeep').checked ? KEEP_TEXT : ''].filter(Boolean).join(' ');
 }
 
+// ---------- intro video: POV product review of the hat ----------
+// The sample prompt split into its parts. `multi` groups can pick several; `ordered` keeps click order.
+// {hat} = the hat (with its description), {holder} = the chosen hand.
+const INTRO_GROUPS = [
+  { key: 'shot', label: 'Kiểu cảnh', options: [
+    { id: 'pov', label: 'POV review cầm tay', text: 'POV product review of {hat} held by {holder}.' },
+    { id: 'unbox', label: 'Mở hộp (unboxing)', text: 'POV unboxing: {holder} lifts {hat} out of a minimal box.' },
+    { id: 'show', label: 'Giơ mũ về phía camera', text: '{Holder} holds {hat} up toward the camera to present it.' },
+    { id: 'flatlay', label: 'Đặt trên bàn, nhìn từ trên', text: 'Top-down product shot of {hat} on a clean surface, {holder} reaching in to present it.' },
+  ] },
+  { key: 'holder', label: 'Tay cầm', options: [
+    { id: 'female', label: 'Tay nữ', text: 'a female hand' },
+    { id: 'nails', label: 'Tay nữ làm móng', text: 'a female hand with neat, natural manicured nails' },
+    { id: 'male', label: 'Tay nam', text: 'a male hand' },
+    { id: 'two', label: 'Hai tay', text: 'two hands' },
+  ] },
+  { key: 'framing', label: 'Khung hình', options: [
+    { id: 'close', label: 'Cận cảnh', text: 'Close-up shot' },
+    { id: 'macro', label: 'Siêu cận (macro)', text: 'Extreme close-up macro shot' },
+    { id: 'medium', label: 'Trung cảnh', text: 'Medium close-up shot' },
+  ] },
+  { key: 'highlight', label: 'Làm nổi bật', multi: true, options: [
+    { id: 'shape', label: 'Dáng mũ', text: 'shape' },
+    { id: 'weave', label: 'Vân đan / chất liệu', text: 'woven texture' },
+    { id: 'brim', label: 'Vành mũ', text: 'brim' },
+    { id: 'band', label: 'Dây / nơ trang trí', text: 'band and ribbon' },
+    { id: 'embroidery', label: 'Hoạ tiết thêu', text: 'embroidery' },
+    { id: 'stitch', label: 'Đường may', text: 'stitching' },
+    { id: 'color', label: 'Màu sắc', text: 'colors' },
+    { id: 'details', label: 'Chi tiết', text: 'details' },
+  ] },
+  { key: 'background', label: 'Nền', options: [
+    { id: 'minimal', label: 'Tối giản, mờ nhẹ', text: 'Clean minimal background, slightly blurred for depth.' },
+    { id: 'white', label: 'Trắng studio', text: 'Seamless white studio background.' },
+    { id: 'wood', label: 'Bàn gỗ ấm', text: 'Warm wooden tabletop background, softly blurred.' },
+    { id: 'bedroom', label: 'Phòng ngủ ấm cúng', text: 'Cozy bedroom background with soft bokeh.' },
+    { id: 'cafe', label: 'Quán cà phê', text: 'Bright café background, softly out of focus.' },
+    { id: 'beach', label: 'Bãi biển', text: 'Sunny beach background, softly blurred.' },
+  ] },
+  { key: 'motion', label: 'Chuyển động của tay', multi: true, ordered: true, hint: 'bấm theo thứ tự', options: [
+    { id: 'rotate', label: 'Xoay chậm khoe các góc', text: 'slowly rotates the hat to show different angles' },
+    { id: 'lift', label: 'Đưa mũ vào khung hình', text: 'lifts the hat into frame from below, then holds it still' },
+    { id: 'tilt', label: 'Nghiêng cho thấy lòng mũ', text: 'tilts the hat to reveal the inside lining' },
+    { id: 'trace', label: 'Vuốt dọc vành mũ', text: 'traces a finger slowly along the brim to show the texture' },
+    { id: 'flip', label: 'Lật xem trên & dưới', text: 'turns the hat over to show the top, then the underside' },
+    { id: 'place', label: 'Đặt xuống & chỉnh vành', text: 'gently places the hat down and adjusts the brim' },
+  ] },
+  { key: 'camera', label: 'Máy quay', options: [
+    { id: 'stable', label: 'Đứng yên, xoá phông', text: 'Camera remains stable, shallow depth of field, cinematic focus on the hat.' },
+    { id: 'pushin', label: 'Tiến chậm vào mũ', text: 'Camera slowly pushes in, shallow depth of field, focus stays on the hat.' },
+    { id: 'orbit', label: 'Lia vòng quanh mũ', text: 'Camera slowly orbits around the hat, shallow depth of field.' },
+    { id: 'handheld', label: 'Cầm tay nhẹ', text: 'Subtle handheld camera, shallow depth of field, focus on the hat.' },
+  ] },
+  { key: 'style', label: 'Phong cách', multi: true, options: [
+    { id: 'realistic', label: 'Chân thực', text: 'realistic' },
+    { id: 'lifestyle', label: 'Lifestyle', text: 'lifestyle' },
+    { id: 'tiktok', label: 'TikTok ngắn', text: 'TikTok short-form' },
+    { id: 'aesthetic', label: 'Aesthetic', text: 'aesthetic' },
+    { id: 'detail', label: 'Chi tiết cao', text: 'high detail' },
+    { id: 'cinematic', label: 'Điện ảnh', text: 'cinematic' },
+    { id: 'ugc', label: 'UGC tự nhiên', text: 'UGC' },
+  ] },
+  { key: 'lighting', label: 'Ánh sáng', options: [
+    { id: 'daylight', label: 'Nắng tự nhiên, bóng mềm', text: 'natural daylight, soft shadows' },
+    { id: 'golden', label: 'Nắng chiều vàng', text: 'golden hour sunlight, warm glow' },
+    { id: 'studio', label: 'Studio sáng', text: 'bright studio softbox lighting' },
+    { id: 'warm', label: 'Đèn vàng trong nhà', text: 'warm indoor lamp light' },
+  ] },
+  { key: 'mood', label: 'Cảm giác', multi: true, options: [
+    { id: 'clean', label: 'Sạch sẽ', text: 'clean' },
+    { id: 'premium', label: 'Cao cấp', text: 'premium' },
+    { id: 'minimal', label: 'Tối giản', text: 'minimal' },
+    { id: 'cozy', label: 'Ấm cúng', text: 'cozy' },
+    { id: 'summer', label: 'Mùa hè', text: 'summery' },
+    { id: 'elegant', label: 'Thanh lịch', text: 'elegant' },
+    { id: 'playful', label: 'Vui tươi', text: 'playful' },
+  ] },
+  { key: 'avoid', label: 'Tránh / giữ nguyên', multi: true, options: [
+    { id: 'keep', label: 'Giữ đúng thiết kế mũ', text: 'Keep the hat design exactly as in the image.' },
+    { id: 'steady', label: 'Mượt, không rung', text: 'Smooth, steady motion. No shaking. No unnecessary hand movement.' },
+    { id: 'talk', label: 'Không nói', text: 'no talking' },
+    { id: 'subs', label: 'Không phụ đề', text: 'no subtitles' },
+    { id: 'wm', label: 'Không watermark', text: 'no watermark' },
+    { id: 'text', label: 'Không chữ', text: 'no text overlays' },
+    { id: 'hands', label: 'Không thêm tay thừa', text: 'no extra hands or fingers' },
+  ] },
+];
+// The sample prompt, as the default selection
+const INTRO_DEFAULT = {
+  shot: ['pov'], holder: ['female'], framing: ['close'], highlight: ['shape', 'weave', 'details'],
+  background: ['minimal'], motion: ['rotate'], camera: ['stable'],
+  style: ['realistic', 'lifestyle', 'tiktok', 'aesthetic', 'detail'], lighting: ['daylight'],
+  mood: ['clean', 'premium', 'minimal'], avoid: ['keep', 'steady', 'talk', 'subs', 'wm'],
+};
+let introSel = structuredClone(INTRO_DEFAULT);
+let videoKind = 'char'; // 'char' (character wearing the hat) | 'intro' (POV hat review)
+
+const introOpt = (key, id) => INTRO_GROUPS.find(g => g.key === key)?.options.find(o => o.id === id);
+const introTexts = key => (introSel[key] || []).map(id => introOpt(key, id)?.text).filter(Boolean);
+/** "a, b, and c" */
+function listJoin(items) {
+  if (items.length <= 1) return items[0] || '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
+}
+
+/** The intro prompt, laid out like the sample (paragraphs). */
+function buildIntroPrompt() {
+  const product = selectedProduct();
+  const desc = product?.description?.trim();
+  const hat = desc ? `the hat (${desc.replace(/[.\s]+$/, '')})` : 'the hat';
+  const holderText = introTexts('holder')[0] || 'a hand';
+  const fill = t => t.replaceAll('{hat}', hat).replaceAll('{holder}', holderText).replaceAll('{Holder}', capital(holderText));
+
+  const p1 = [];
+  const shot = introTexts('shot')[0];
+  if (shot) p1.push(fill(shot));
+  const framing = introTexts('framing')[0];
+  const highlights = introTexts('highlight');
+  const lightLead = highlights.length ? `soft bright lighting highlighting the hat’s ${listJoin(highlights)}` : '';
+  const skin = /hand/.test(holderText) ? 'natural skin tones' : '';
+  const framingLine = [framing, skin, lightLead].filter(Boolean).join(', ');
+  if (framingLine) p1.push(sentence(framingLine));
+  const bg = introTexts('background')[0];
+  if (bg) p1.push(bg);
+
+  const p2 = [];
+  const moves = introTexts('motion');
+  const who = /two hands/.test(holderText) ? 'The hands' : 'The hand';
+  if (moves.length === 1) p2.push(`${who} ${moves[0]}.`);
+  else if (moves.length > 1) p2.push(`${who} first ${moves.slice(0, -1).join(', then ')}, and finally ${moves.at(-1)}.`);
+  const avoid = introTexts('avoid');
+  const steady = introOpt('avoid', 'steady').text;
+  if (avoid.includes(steady)) p2.push(steady);
+
+  const p3 = introTexts('camera');
+
+  const tags = [];
+  if (introTexts('style').length) tags.push(`Style: ${introTexts('style').join(', ')}`);
+  if (introTexts('lighting').length) tags.push(`Lighting: ${introTexts('lighting').join(', ')}`);
+  if (introTexts('mood').length) tags.push(`Mood: ${introTexts('mood').join(', ')}`);
+
+  const extra = sentence($('vPrompt').value);
+  const keep = introOpt('avoid', 'keep').text;
+  const nos = avoid.filter(t => t !== steady && t !== keep);
+  const tail = [avoid.includes(keep) ? keep : '', nos.length ? capital(nos.join(', ')) : ''].filter(Boolean);
+
+  return [p1.join(' '), p2.join(' '), p3.join(' '), extra, tags.join('\n'), tail.join('\n')]
+    .filter(Boolean).join('\n\n');
+}
+
+function renderIntroBuilder() {
+  const box = $('vIntro');
+  box.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'intro-grid';
+  for (const g of INTRO_GROUPS) {
+    const wrap = document.createElement('div');
+    wrap.className = 'intro-group';
+    const head = document.createElement('p');
+    head.textContent = g.label + ' ';
+    const small = document.createElement('small');
+    small.textContent = g.hint || (g.multi ? 'chọn nhiều' : 'chọn 1');
+    head.append(small);
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    chips.setAttribute('role', 'group');
+    chips.setAttribute('aria-label', g.label);
+    for (const o of g.options) {
+      const cur = introSel[g.key] || [];
+      const order = cur.indexOf(o.id);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.title = o.text.replaceAll('{hat}', 'the hat').replaceAll('{holder}', 'a hand').replaceAll('{Holder}', 'A hand');
+      b.setAttribute('aria-pressed', String(order >= 0));
+      if (g.ordered && order >= 0) {
+        const num = document.createElement('span');
+        num.className = 'num'; num.textContent = order + 1;
+        b.append(num);
+      }
+      b.append(o.label);
+      b.onclick = () => {
+        if (g.multi) introSel[g.key] = order >= 0 ? cur.filter(id => id !== o.id) : [...cur, o.id];
+        else introSel[g.key] = order >= 0 && g.key !== 'shot' ? [] : [o.id]; // single: click again to clear (shot always set)
+        renderIntroBuilder();
+        onVideoChange();
+      };
+      chips.append(b);
+    }
+    wrap.append(head, chips);
+    grid.append(wrap);
+  }
+  const reset = document.createElement('button');
+  reset.type = 'button'; reset.className = 'link'; reset.textContent = '↺ Về mẫu gốc';
+  reset.onclick = () => { introSel = structuredClone(INTRO_DEFAULT); renderIntroBuilder(); onVideoChange(); };
+  box.append(grid, reset);
+}
+
+function setVideoKind(kind) {
+  videoKind = kind;
+  for (const b of document.querySelectorAll('[data-vkind]')) b.setAttribute('aria-checked', String(b.dataset.vkind === kind));
+  for (const el of document.querySelectorAll('#videoDlg .char-only')) el.hidden = kind !== 'char';
+  for (const el of document.querySelectorAll('#videoDlg .intro-only')) el.hidden = kind !== 'intro';
+  $('vdlgTitle').textContent = kind === 'intro' ? '🎬 Video mở đầu — review mũ (POV)' : '🎬 Tạo video từ ảnh';
+  if (kind === 'intro') {
+    document.querySelector('input[name="vmode"][value="each"]').checked = true; // one video per image
+    renderIntroBuilder();
+  }
+  renderVideoFrames();
+  if (kind === 'char') renderMotions();
+  onVideoChange();
+}
+
 /** One prompt per video: per image in "each" mode; one two-scene prompt in "pair" mode. */
 function buildVideoPrompts() {
+  if (videoKind === 'intro') return videoFrames.map(() => buildIntroPrompt());
   if (isPairMode()) {
     const [a, b] = [actionPhrase(sceneActions[0] || []), actionPhrase(sceneActions[1] || [])];
     let body = '';
@@ -1481,8 +2370,9 @@ function renderVideoFrames() {
   });
 }
 
-function openVideoDialog() {
-  videoFrames = [...selected].filter(isImageUrl);
+/** opts.frames: start images (default: the selected ones); opts.kind: 'char' | 'intro'. */
+function openVideoDialog(opts = {}) {
+  videoFrames = Array.isArray(opts.frames) ? opts.frames : [...selected].filter(isImageUrl);
   if (!videoFrames.length) return;
   const canPair = videoFrames.length === 2;
   $('vPairLabel').classList.toggle('off', !canPair);
@@ -1496,8 +2386,7 @@ function openVideoDialog() {
   activeScene = 0;
   renderVideoFrames();
   renderMotions();
-  showFinalPrompts();
-  renderVideoCost();
+  setVideoKind(typeof opts.kind === 'string' ? opts.kind : 'char');
   $('videoDlg').showModal();
 }
 
@@ -1507,6 +2396,18 @@ function setupVideoDialog() {
   $('vCamera').value = CAMERAS.some(c => c.id === vPrefs.camera) ? vPrefs.camera : 'selfie';
   $('vSpeed').value = SPEEDS.some(x => x.id === vPrefs.speed) ? vPrefs.speed : 'natural';
   if (Array.isArray(vPrefs.actions)) defaultActions = vPrefs.actions;
+  // Intro builder: restore the last picks (dropping ids that no longer exist)
+  if (vPrefs.intro && typeof vPrefs.intro === 'object') {
+    introSel = Object.fromEntries(INTRO_GROUPS.map(g => [g.key,
+      (Array.isArray(vPrefs.intro[g.key]) ? vPrefs.intro[g.key] : INTRO_DEFAULT[g.key] || []).filter(id => introOpt(g.key, id))]));
+  }
+  for (const b of document.querySelectorAll('[data-vkind]')) b.onclick = () => setVideoKind(b.dataset.vkind);
+  $('vCopyPrompt').onclick = async () => {
+    const text = buildVideoPrompts()[0] || '';
+    try { await navigator.clipboard.writeText(text); $('vCopyPrompt').textContent = '✓ Đã chép'; }
+    catch { $('vCopyPrompt').textContent = 'Không chép được — bôi đen để copy'; }
+    setTimeout(() => { $('vCopyPrompt').textContent = '📋 Chép câu lệnh'; }, 1800);
+  };
   $('vCopyAll').onclick = () => {
     sceneActions = sceneActions.map(() => [...curActions()]);
     renderMotions();
@@ -1617,6 +2518,7 @@ function setupVideoDialog() {
 
 function showFinalPrompts() {
   const prompts = buildVideoPrompts();
+  if (videoKind === 'intro') $('vFinalBox').open = true;
   $('vFinal').textContent = prompts.length === 1
     ? prompts[0] || '(trống — chọn ít nhất 1 hành động hoặc gõ chi tiết)'
     : prompts.map((t, i) => `Video ${i + 1}: ${t || '(trống — cảnh này chưa có hành động)'}`).join('\n\n');
@@ -1629,6 +2531,7 @@ function onVideoChange() {
     model: $('vModel').value, duration: Number($('vDuration').value), ratio: $('vRatio').value,
     actions: defaultActions, camera: $('vCamera').value, speed: $('vSpeed').value,
     extra: $('vPrompt').value, keep: $('vKeep').checked, audio: $('vAudio').checked,
+    intro: introSel,
   });
   renderVideoCost();
 }
@@ -1664,6 +2567,8 @@ for (const id of ['model', 'ratio']) $(id).addEventListener('change', savePrefs)
   const opts = await api('/api/options').catch(() => ({ models: [], ratios: [] }));
   if (opts.video) videoOpts = opts.video;
   setupVideoDialog();
+  setupTrendDialog();
+  setupLayoutMenu();
   fillSelect($('model'), opts.models, prefs.model ?? 'Nano Banana 2.1');
   fillSelect($('ratio'), opts.ratios, prefs.ratio ?? '9:16');
   editors.characters = createEditor('characters');
@@ -1687,6 +2592,8 @@ for (const id of ['model', 'ratio']) $(id).addEventListener('change', savePrefs)
   renderShoot();
   refreshGallery();
   refreshStatus();
+  refreshInbox();
+  setInterval(refreshInbox, 4000);
   if (!studio.characters.length) {
     openTab('characters');
     showMsg('info', 'Bắt đầu: tạo nhân vật của bạn (tên + 1–3 ảnh mặt), rồi thêm chiếc mũ cần quảng bá.');

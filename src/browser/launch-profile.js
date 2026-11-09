@@ -4,6 +4,7 @@ import fs from 'fs';
 import { logger } from '../utils/logger.js';
 import { get } from '../utils/config.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
+import { getProfileName, getProfileSourceDir } from './chrome-paths.js';
 import { launchChromeDirect, resolveBrowserPath, setPage, setContext, setConnected, setBrowser, isBrowserConnected } from './connect.js';
 
 const CDP_PORT = get('cdpPort', 9222);
@@ -16,13 +17,11 @@ export async function launchKiaraProfile(headless = false) {
     return { success: true, message: 'Already connected' };
   }
 
-  const userDataDir = get('chromeUserDataDir') || path.resolve(process.env.HOME || '', '.config/google-chrome');
-  const profileName = get('chromeProfile', 'Profile 3');
-  const profileSource = path.join(userDataDir, profileName);
+  const profileName = getProfileName();
+  const profileSource = getProfileSourceDir();
 
   if (!fs.existsSync(profileSource)) {
-    throw new FlowError(ErrorCodes.CONFIG_ERROR,
-      `Profile "${profileName}" not found at ${profileSource}. Check chromeUserDataDir / chromeProfile in config/flow.config.json.`);
+    logger.warn(`Profile "${profileName}" not found at ${profileSource} - an empty automation profile will be used (sign in once). Check FLOW_CHROME_USER_DATA_DIR / FLOW_CHROME_PROFILE.`);
   }
 
   logger.info('Launching Chrome via direct+CDP method (anti-detection)', { profileSource });

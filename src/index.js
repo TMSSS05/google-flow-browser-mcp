@@ -10,6 +10,7 @@ import {
 import { logger } from './utils/logger.js';
 import { launchKiaraProfile, navigateToFlow } from './browser/launch-profile.js';
 import { getPage, getBrowser, setBrowser, closeBrowser as closeBrowserConnection } from './browser/connect.js';
+import { getProfileName } from './browser/chrome-paths.js';
 import { verifyAccount as checkAccount } from './browser/account-check.js';
 import { handleFlowOpen } from './tools/flow-open.js';
 import { handleFlowStatus } from './tools/flow-status.js';
@@ -58,7 +59,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'flow_account_check',
-    description: 'Verify the logged-in Google account matches the configured expected email (Profile 3).',
+    description: 'Verify the logged-in Google account matches the configured expected email (configured chromeProfile).',
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -250,12 +251,11 @@ async function handleToolCall(name, args) {
       if (oauthRequired) {
         return { content: [{ type: 'text', text: JSON.stringify({
           status: 'oauth_required',
-          message: 'Google Flow requires OAuth authentication. Open Chrome Profile 3 manually once:\n'
-            + '  1. Launch: google-chrome --profile-directory="Profile 3"\n'
-            + '  2. Navigate to: https://labs.google/fx/tools/flow/tools/grid-architect\n'
-            + '  3. Complete the Google sign-in (one time)\n'
-            + '  4. Retry this MCP tool in headless mode',
-          browserType: 'Chrome Profile 3',
+          message: 'Google Flow requires sign-in. In the Chrome window opened by the MCP (automation profile):\n'
+            + '  1. Sign in to Google once - the session is kept in the automation profile folder\n'
+            + '  2. Open https://flow.google.com/\n'
+            + '  3. Retry flow_connect',
+          browserType: `Chrome ${getProfileName()}`,
           account: accountCheck?.account ?? null,
           url: page.url().substring(0, 100),
           accountVerified: accountCheck,
@@ -263,7 +263,7 @@ async function handleToolCall(name, args) {
       }
       return { content: [{ type: 'text', text: JSON.stringify({
         status: 'connected',
-        browserType: 'Chrome Profile 3',
+        browserType: `Chrome ${getProfileName()}`,
         account: accountCheck?.account ?? null,
         url: page.url(),
         accountVerified: accountCheck,

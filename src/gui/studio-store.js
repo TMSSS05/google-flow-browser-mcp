@@ -56,6 +56,9 @@ export function upsertProfile(kind, input) {
     name,
     description: String(input.description || '').trim(),
     images,
+    // Free-form info (e.g. the Telegram caption: price, material…). Not sent to the image prompt.
+    ...((input.notes ?? existing?.notes) ? { notes: String(input.notes ?? existing.notes).slice(0, 4000) } : {}),
+    ...((input.source ?? existing?.source) ? { source: String(input.source ?? existing.source) } : {}),
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
@@ -73,6 +76,10 @@ export function addPreset(group, input) {
   if (!text) throw new Error('Cần mô tả cho AI.');
   const preset = { id: `c_${Date.now()}`, label, text, custom: true };
   if (group === 'poses') preset.wear = input.wear !== false;
+  // Outfits can carry a flat-lay reference image (attached to Flow after character + hat)
+  if (group === 'outfits' && typeof input.image === 'string' && input.image.startsWith('/uploads/')) preset.image = input.image;
+  if (input.source) preset.source = String(input.source).slice(0, 40);
+  if (input.note) preset.note = String(input.note).slice(0, 300);
   const data = load();
   data.presets[group].push(preset);
   save(data);

@@ -7,15 +7,17 @@ import { logger } from '../utils/logger.js';
 import { get } from '../utils/config.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
 import { takeScreenshot } from '../utils/screenshots.js';
+import { getProfileSourceDir, getAutomationUserDataDir } from './chrome-paths.js';
 
 // Candidate browser executables per platform, in order of preference.
 // Any Chromium-based browser with CDP support works (Chrome, Edge).
 const BROWSER_CANDIDATES = {
   win32: [
-    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    `${(process.env.LOCALAPPDATA || '').replace(/\\/g, '/')}/Google/Chrome/Application/chrome.exe`,
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
   ],
   darwin: [
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -34,14 +36,37 @@ const BROWSER_CANDIDATES = {
  * first installed candidate for this platform.
  */
 export function resolveBrowserPath() {
-  const configured = get('browserPath');
+  const configured = get('browserPath') || get('chromePath');
   if (configured) return configured;
   const candidates = BROWSER_CANDIDATES[process.platform] || BROWSER_CANDIDATES.linux;
   return candidates.find(p => fs.existsSync(p)) || candidates[0];
 }
 
 // Cache folders skipped when cloning a profile (large, often locked, not needed for auth)
-const PROFILE_COPY_SKIP = new Set(['Cache', 'Code Cache', 'GPUCache', 'DawnCache', 'GrShaderCache', 'ShaderCache', 'Service Worker']);
+const PROFILE_COPY_SKIP = new Set([
+  'Cache', 'Code Cache', 'GPUCache', 'DawnCache', 'DawnGraphiteCache', 'DawnWebGPUCache',
+  'GrShaderCache', 'GraphiteDawnCache', 'ShaderCache', 'Service Worker', 'blob_storage',
+  'optimization_guide_model_store', 'LOCK', 'lockfile', 'SingletonLock', 'SingletonCookie', 'SingletonSocket',
+]);
+
+/** Copy a profile folder, skipping caches and files locked by a running browser. Returns #skipped. */
+function copyProfileBestEffort(src, dest) {
+  let skipped = 0;
+  const walk = (from, to) => {
+    fs.mkdirSync(to, { recursive: true });
+    for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
+      if (PROFILE_COPY_SKIP.has(entry.name)) continue;
+      const a = path.join(from, entry.name);
+      const b = path.join(to, entry.name);
+      try {
+        if (entry.isDirectory()) walk(a, b);
+        else if (entry.isFile()) fs.copyFileSync(a, b);
+      } catch { skipped++; }
+    }
+  };
+  walk(src, dest);
+  return skipped;
+}
 
 let browser = null;
 let context = null;
@@ -139,7 +164,7 @@ export async function launchChromeDirect(options = {}) {
   const chromePath = options.chromePath || resolveBrowserPath();
   const cdpPort = options.cdpPort || get('cdpPort', 9222);
   const headless = options.headless ?? get('headless', false);
-  const profileSource = options.profileSource || path.resolve(process.env.HOME || os.homedir(), '.config/google-chrome/Profile 3');
+  const profileSource = options.profileSource || getProfileSourceDir();
   const profileName = path.basename(profileSource);
 
   if (isConnected && page) {
@@ -153,19 +178,18 @@ export async function launchChromeDirect(options = {}) {
 
   // One persistent browser profile for the tool, seeded from the user's profile the first
   // time only. A fresh temp copy per launch lost the Google sign-in every time.
-  const dataDir = get('browserDataDir') || path.join(os.homedir(), '.google-flow-mcp', 'browser-profile');
+  const dataDir = get('browserDataDir') || getAutomationUserDataDir();
   if (!fs.existsSync(path.join(dataDir, profileName))) {
     fs.mkdirSync(dataDir, { recursive: true });
     // "Local State" sits next to the profile folder and holds the cookie encryption key
     const localStateSrc = path.join(path.dirname(profileSource), 'Local State');
     if (fs.existsSync(profileSource)) {
-      fs.cpSync(profileSource, path.join(dataDir, profileName), {
-        recursive: true,
-        filter: src => !PROFILE_COPY_SKIP.has(path.basename(src)),
-      });
+      const skipped = copyProfileBestEffort(profileSource, path.join(dataDir, profileName));
+      if (skipped) logger.warn('Some profile files were locked and skipped (close Chrome to copy them)', { skipped });
     }
     if (fs.existsSync(localStateSrc)) {
-      fs.cpSync(localStateSrc, path.join(dataDir, 'Local State'));
+      try { fs.copyFileSync(localStateSrc, path.join(dataDir, 'Local State')); }
+      catch { fs.writeFileSync(path.join(dataDir, 'Local State'), JSON.stringify({ profile: { info_cache: {} } })); }
     } else {
       fs.writeFileSync(path.join(dataDir, 'Local State'), JSON.stringify({ profile: { info_cache: {} } }));
     }

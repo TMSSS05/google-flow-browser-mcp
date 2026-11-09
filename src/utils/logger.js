@@ -26,7 +26,7 @@ function timestamp() {
 export const logger = {
   info(msg, data = {}) {
     const line = `[${timestamp()}] INFO  ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`;
-    console.log(line);
+    console.error(line); // stderr: stdout is reserved for MCP JSON-RPC
     getLogStream().write(line + '\n');
   },
 
@@ -45,7 +45,7 @@ export const logger = {
   debug(msg, data = {}) {
     const line = `[${timestamp()}] DEBUG ${msg} ${Object.keys(data).length ? JSON.stringify(data) : ''}`;
     if (process.env.DEBUG) {
-      console.debug(line);
+      console.error(line);
     }
     getLogStream().write(line + '\n');
   }

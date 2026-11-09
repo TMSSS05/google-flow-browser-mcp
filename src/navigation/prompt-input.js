@@ -1,8 +1,25 @@
 import { takeScreenshot } from '../utils/screenshots.js';
 import { FlowError, ErrorCodes } from '../utils/errors.js';
 
+/**
+ * Flow's composer turns each line into its own paragraph (and reading it back glues them
+ * together without a space), so multi-line prompts can't be verified. Send one line instead:
+ * each line becomes a sentence ("Style: a, b" → "Style: a, b.").
+ */
+export function flattenPrompt(text) {
+  return String(text)
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(l => (/[.!?…:;,]$/.test(l) ? l : `${l}.`))
+    .join(' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
 /** Replace the composer prompt with `text` and verify Flow received all of it. */
-export async function fillPrompt(page, text) {
+export async function fillPrompt(page, rawText) {
+  const text = flattenPrompt(rawText);
   const candidates = [
     page.locator('[contenteditable="true"]:visible').first(),
     page.locator('textarea:visible').first(),

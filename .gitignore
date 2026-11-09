@@ -13,3 +13,4 @@ test-agent-generation.js
 uploads/
 data/
 *.7z
+chrome-profile-*/

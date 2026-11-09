@@ -15,6 +15,12 @@ import { handleGenerateVideo, resolveVideoModel } from '../tools/generate-video.
 import { acquireLock, releaseLock, otherHolder } from '../utils/browser-lock.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { extractProductInfo, hasCredentials, SUPPORTED_DOC_EXTS } from './doc-extract.js';
+import { sendFiles, recentChats, telegramEnabled, defaultChatId } from './telegram.js';
+import { startTelegramWatcher, watcherRunning, listInbox, getItem, updateItem, knownChats } from './telegram-inbox.js';
+import { cutoutOnWhite, notebookUrl, askGemini, drawWithGemini } from './gemini.js';
+import { fetchTikTokHashtags, fetchGoogleTrends, loadTrendsCache, saveTrendsCache } from './trends.js';
+import { outfitIdeasPrompt, parseOutfitIdeas, flatlayPrompt } from './outfit-ideas.js';
+import { getContext } from '../browser/connect.js';
 import { listProfiles, getProfile, upsertProfile, deleteProfile, addPreset, deletePreset } from './studio-store.js';
 
 const PORT = Number(process.env.FLOW_GUI_PORT) || 4321;
@@ -163,6 +169,45 @@ function setBusy(on) {
   if (on) acquireLock(`GUI :${PORT}`);
   else releaseLock();
 }
+// Approved Telegram hats wait here until the browser is free, then go through Gemini one by one.
+const geminiQueue = [];
+let geminiRunning = false;
+async function runGeminiQueue() {
+  if (geminiRunning) return;
+  geminiRunning = true;
+  try {
+    while (geminiQueue.length) {
+      if (busyReason()) { await new Promise(r => setTimeout(r, 5000)); continue; } // Flow is generating
+      const id = geminiQueue.shift();
+      const item = getItem(id);
+      if (!item || item.status !== 'queued') continue;
+      setBusy(true);
+      updateItem(id, { status: 'processing', startedAt: new Date().toISOString() });
+      try {
+        if (!isBrowserConnected()) await connect();
+        const source = path.join(UPLOADS_DIR, path.basename(item.images[0]));
+        const outName = `ref_${Date.now()}_${id}_white.png`;
+        await cutoutOnWhite(getContext(), source, path.join(UPLOADS_DIR, outName));
+        const product = upsertProfile('products', {
+          name: item.name,
+          description: '',
+          images: [`/uploads/${outName}`],
+          notes: item.caption,
+          source: 'telegram',
+        });
+        updateItem(id, { status: 'done', result: `/uploads/${outName}`, productId: product.id, finishedAt: new Date().toISOString() });
+        logger.info('Telegram hat ready', { id, productId: product.id });
+      } catch (err) {
+        updateItem(id, { status: 'error', error: err.message });
+      } finally {
+        setBusy(false);
+      }
+    }
+  } finally {
+    geminiRunning = false;
+  }
+}
+
 /** Why a new generation can't start now, or null if it can. */
 function busyReason() {
   if (busy) return 'Đang có một lượt tạo khác, vui lòng chờ.';
@@ -234,7 +279,7 @@ async function runBatch(batch, { references, model, ratio, outputFolder }) {
       try {
         const r = await handleGenerateImage({
           prompt: item.prompt, model, ratio, quantity: 1,
-          reference_images: references, auto_confirm: true, output_folder: outputFolder,
+          reference_images: [...references, ...(item.extraRefs || [])], auto_confirm: true, output_folder: outputFolder,
         });
         item.status = 'done';
         item.images = (r.files || []).map(toOutputUrl);
@@ -316,7 +361,13 @@ const routes = {
   'POST /api/video': async (req, res) => {
     if (busyReason()) return sendJson(res, 409, { error: busyReason() });
     const body = await readBody(req);
-    const frames = [...new Set(body.images || [])].map(u => ({ url: u, file: outputUrlToPath(u) }));
+    // Frames: generated images (/outputs/…) or a hat's reference image (/uploads/…, e.g. the intro video)
+    const frameFile = u => {
+      if (outputUrlToPath(u)) return outputUrlToPath(u);
+      if (typeof u === 'string' && u.startsWith('/uploads/')) { try { return uploadUrlToPath(u); } catch { return null; } }
+      return null;
+    };
+    const frames = [...new Set(body.images || [])].map(u => ({ url: u, file: frameFile(u) }));
     if (!frames.length) return sendJson(res, 400, { error: 'Chưa chọn ảnh nào.' });
     const missing = frames.find(f => !f.file);
     if (missing) return sendJson(res, 400, { error: `Không tìm thấy ảnh: ${missing.url}` });
@@ -392,6 +443,102 @@ const routes = {
     res.end(buf);
   },
 
+  // ---- Telegram (bot → channel) ----
+  'GET /api/telegram': (req, res) => sendJson(res, 200, { enabled: telegramEnabled(), chatId: defaultChatId() || null }),
+  'GET /api/telegram/chats': async (req, res) => {
+    // While the watcher long-polls, a second getUpdates would conflict (409): use what it recorded
+    if (watcherRunning()) return sendJson(res, 200, knownChats());
+    try { sendJson(res, 200, await recentChats()); }
+    catch (err) { sendJson(res, 400, { error: err.message }); }
+  },
+
+  // ---- Fashion trends → outfit ideas (Gemini) → outfit presets ----
+  'GET /api/trends': (req, res) => sendJson(res, 200, loadTrendsCache() || {}),
+  'POST /api/trends/refresh': async (req, res) => {
+    const body = await readBody(req);
+    const country = /^[A-Z]{2}$/.test(body.country) ? body.country : 'VN';
+    const period = [7, 30, 120].includes(Number(body.period)) ? Number(body.period) : 7;
+    const out = { country, period, fetchedAt: new Date().toISOString(), tiktok: null, google: null, errors: [] };
+    try {
+      if (!isBrowserConnected()) await connect();
+      out.tiktok = await fetchTikTokHashtags(getContext(), { country, period });
+    } catch (err) { out.errors.push(`TikTok: ${err.message}`); }
+    try { out.google = await fetchGoogleTrends(country); }
+    catch (err) { out.errors.push(`Google Trends: ${err.message}`); }
+    saveTrendsCache(out);
+    sendJson(res, 200, out);
+  },
+  'POST /api/trends/outfits': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    const hashtags = (body.hashtags || []).map(String).slice(0, 15);
+    const searches = (body.searches || []).map(String).slice(0, 15);
+    if (!hashtags.length && !searches.length) return sendJson(res, 400, { error: 'Chọn ít nhất 1 hashtag hoặc từ khoá.' });
+    setBusy(true);
+    try {
+      if (!isBrowserConnected()) await connect();
+      const { text } = await askGemini(getContext(), outfitIdeasPrompt({
+        hashtags, searches, hat: String(body.hat || '').slice(0, 200), country: body.countryName || 'Việt Nam',
+        count: Math.min(Math.max(Number(body.count) || 8, 3), 12),
+      }));
+      sendJson(res, 200, { ideas: parseOutfitIdeas(text) });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  },
+  'POST /api/trends/flatlay': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    const text = String(body.text || '').trim();
+    if (!text) return sendJson(res, 400, { error: 'Thiếu mô tả outfit.' });
+    setBusy(true);
+    try {
+      if (!isBrowserConnected()) await connect();
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      const name = `ref_${Date.now()}_outfit_flatlay.png`;
+      await drawWithGemini(getContext(), flatlayPrompt(text), path.join(UPLOADS_DIR, name));
+      sendJson(res, 200, { url: `/uploads/${name}` });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  },
+
+  // ---- Telegram inbox → Gemini white-background cut-out → new hat profile ----
+  'GET /api/inbox': (req, res) => sendJson(res, 200, {
+    watching: watcherRunning(), notebook: notebookUrl(), items: listInbox().slice(0, 30),
+  }),
+  'POST /api/inbox/approve': async (req, res) => {
+    const body = await readBody(req);
+    const item = getItem(body.id);
+    if (!item) return sendJson(res, 404, { error: 'Không tìm thấy mục này.' });
+    if (['queued', 'processing'].includes(item.status)) return sendJson(res, 200, item);
+    const name = String(body.name || item.name).trim().slice(0, 60) || item.name;
+    const updated = updateItem(item.id, { status: 'queued', name, error: null });
+    geminiQueue.push(item.id);
+    runGeminiQueue();
+    sendJson(res, 200, updated);
+  },
+  'POST /api/inbox/dismiss': async (req, res) => {
+    const body = await readBody(req);
+    try { sendJson(res, 200, updateItem(body.id, { status: 'dismissed' })); }
+    catch (err) { sendJson(res, 404, { error: err.message }); }
+  },
+  'POST /api/telegram/send': async (req, res) => {
+    const body = await readBody(req);
+    const files = [...new Set((body.files || []).map(outputUrlToPath).filter(Boolean))].slice(0, 50);
+    if (!files.length) return sendJson(res, 400, { error: 'Không tìm thấy file để gửi.' });
+    try {
+      const results = await sendFiles(files, { caption: String(body.caption || ''), chatId: body.chatId || undefined });
+      sendJson(res, 200, { sent: results.filter(r => r.ok).length, total: results.length, results });
+    } catch (err) {
+      sendJson(res, 400, { error: err.message });
+    }
+  },
+
   // ---- Character / hat profiles ----
   'GET /api/studio': (req, res) => sendJson(res, 200, listProfiles()),
   'POST /api/studio/characters': async (req, res) => sendJson(res, 200, upsertProfile('characters', await readBody(req))),
@@ -445,6 +592,11 @@ const routes = {
     if (!shots.length) return sendJson(res, 400, { error: 'Chưa chọn pose nào.' });
     let refs;
     try { refs = batchReferences(body); } catch (err) { return sendJson(res, err.status || 500, { error: err.message }); }
+    // Per-shot extra references (e.g. the outfit's flat-lay image), attached after character + hat
+    let shotRefs;
+    try {
+      shotRefs = shots.map(s => (Array.isArray(s.refs) ? s.refs : []).filter(u => typeof u === 'string' && u.startsWith('/uploads/')).slice(0, 2).map(uploadUrlToPath));
+    } catch (err) { return sendJson(res, 400, { error: err.message }); }
 
     if (body.confirm !== true) {
       setBusy(true);
@@ -452,7 +604,7 @@ const routes = {
         await ensureFlowReady();
         const r = await handleGenerateImage({
           prompt: shots[0].prompt.trim(), model: body.model, ratio: body.ratio, quantity: 1,
-          reference_images: refs.references, auto_confirm: false,
+          reference_images: [...refs.references, ...shotRefs[0]], auto_confirm: false,
         });
         return sendJson(res, 200, { ...r, screenshotUrl: r.screenshot ? `/screenshot?path=${encodeURIComponent(r.screenshot)}` : null });
       } finally {
@@ -465,7 +617,7 @@ const routes = {
       productId: refs.product.id,
       characterId: refs.character.id,
       createdAt: new Date().toISOString(),
-      items: shots.map(s => ({ pose: s.pose, label: s.label || s.pose, prompt: s.prompt.trim(), status: 'pending', images: [] })),
+      items: shots.map((s, i) => ({ pose: s.pose, label: s.label || s.pose, prompt: s.prompt.trim(), extraRefs: shotRefs[i], status: 'pending', images: [] })),
     };
     batches.set(batch.id, batch);
     void runBatch(batch, { // background; runBatch never rejects (errors are recorded on the batch)
@@ -618,6 +770,21 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n[GUI] Cổng ${PORT} đang bị một tiến trình khác dùng (có thể là một "npm run gui" khác đang chạy).\n` +
+      `      Tắt nó trước, hoặc chạy cổng khác:  $env:FLOW_GUI_PORT=4322; npm run gui\n` +
+      `      Tìm tiến trình:  Get-NetTCPConnection -LocalPort ${PORT} | Select OwningProcess\n`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, HOST, () => {
   logger.info(`Flow GUI running at http://${HOST}:${PORT}`);
+  // Jobs cut off by a restart can be retried from the GUI
+  for (const it of listInbox()) {
+    if (['queued', 'processing'].includes(it.status)) updateItem(it.id, { status: 'error', error: 'Bị gián đoạn do server khởi động lại — bấm Thử lại.' });
+  }
+  if (telegramEnabled() && process.env.TELEGRAM_WATCH !== 'false') startTelegramWatcher();
 });
