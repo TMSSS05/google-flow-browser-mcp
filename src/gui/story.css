@@ -1,0 +1,90 @@
+/* Hat Studio — "📖 Truyện" tab (cartoon fruit stories). Uses studio.html's CSS variables. */
+.story { display: flex; flex-direction: column; gap: 14px; font-size: 13px; padding-bottom: 20px; }
+.story .hint { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+.story textarea, .story input[type=text], .story input[type=number], .story select { font: inherit; box-sizing: border-box; }
+.story textarea { width: 100%; resize: vertical; }
+.st-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.st-head select { max-width: 220px; }
+.st-head #stTitle { flex: 1 1 200px; min-width: 0; font-weight: 600; }
+.st-sec { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; }
+.st-sec h3 { margin: 0; font-size: 14px; }
+.st-sec h3 small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.st-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.st-row.tight { gap: 6px; align-items: center; }
+.st-row .field { flex: 0 1 auto; }
+.st-row .grow, .st-scene-head .grow { flex: 1; }
+.st-fruits { align-items: center; }
+.st-fruits .hint { margin: 0 4px 0 0; }
+
+/* cast */
+.st-cast { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 10px; }
+.st-char { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); outline: none; }
+.st-char:focus-within { border-color: var(--accent); }
+.st-char-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.st-char-body .st-row.tight input { flex: 1 1 90px; min-width: 0; }
+.st-img, .st-media { position: relative; border-radius: 8px; background: var(--bg); border: 1px dashed var(--border); display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; cursor: pointer; overflow: hidden; }
+.st-img { width: 96px; height: 128px; }
+.st-img img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.st-img:hover, .st-media:hover { border-color: var(--accent); }
+
+/* scenes */
+.st-scenes { display: flex; flex-direction: column; gap: 10px; }
+.st-scene { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); outline: none; }
+.st-scene:focus-within { border-color: var(--accent); }
+.st-media { width: 150px; aspect-ratio: 9 / 16; align-self: start; }
+.st-media img, .st-media video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+.st-scene-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.st-scene-head { display: flex; align-items: center; gap: 6px; }
+.st-scene-body .field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.st-scene-body .field input, .st-scene-body .field textarea { color: var(--text); }
+.st-sum { margin: 0; font-style: italic; }
+.st-in { gap: 4px; }
+.st-lines { display: flex; flex-direction: column; gap: 4px; }
+.st-line { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.st-prompt { margin: 0; padding: 8px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); white-space: pre-wrap; font-size: 12px; max-height: 240px; overflow: auto; }
+
+@media (max-width: 640px) {
+  .st-scene { grid-template-columns: minmax(0, 1fr); }
+  .st-media { width: 120px; }
+  .st-line { grid-template-columns: 90px minmax(0, 1fr) auto; }
+}
+.st-outfits { gap: 4px; }
+.st-outfits .chip { padding: 2px 8px; font-size: 11px; }
+.st-img { height: 150px; }
+.st-outfit-row { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px; align-items: start; }
+.st-oimg { position: relative; width: 56px; height: 74px; border-radius: 8px; border: 1px dashed var(--border); background: var(--bg); display: grid; place-items: center; text-align: center; font-size: 11px; color: var(--muted); cursor: pointer; overflow: hidden; }
+.st-oimg:hover, .st-oimg:focus { border-color: var(--accent); outline: none; }
+.st-oimg img { width: 100%; height: 100%; object-fit: cover; }
+.st-oimg .x { position: absolute; top: 2px; right: 2px; border: 0; border-radius: 999px; width: 18px; height: 18px; padding: 0; font-size: 10px; line-height: 18px; background: rgb(0 0 0 / .6); color: #fff; cursor: pointer; }
+.st-outfits .chip.lib { display: inline-flex; align-items: center; gap: 4px; }
+.st-outfits .chip.lib img { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
+.st-savelib { align-self: flex-start; font-size: 12px; }
+.st-plot { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); }
+.st-plot .field small { color: var(--muted); font-weight: 400; }
+.st-outline { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.st-plot .st-row input { flex: 1 1 260px; min-width: 0; }
+.st-notes { font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--accent-soft); }
+.st-notes ul { margin: 4px 0 0; padding-left: 18px; }
+.st-purpose { margin: 0; font-size: 12px; color: var(--accent); }
+.st-import { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px dashed var(--accent); border-radius: 8px; background: var(--panel); }
+.st-import[hidden] { display: none; }
+.st-import textarea { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.st-import label { font-size: 12px; display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+.st-import code { font-size: 11px; }
+.st-chain { padding: 6px 8px; border-radius: 8px; background: var(--accent-soft); }
+.st-chain .hint { flex: 1 1 260px; margin: 0; }
+.st-chainbox { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; cursor: pointer; }
+.st-film { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: var(--panel); }
+.st-film .hint { margin: 0; }
+.st-filmout { display: flex; flex-direction: column; gap: 6px; }
+.st-filmout video { width: min(100%, 360px); max-height: 50vh; border-radius: 8px; background: #000; }
+.st-json-title { margin: 0; font-size: 12px; font-weight: 600; }
+.st-json-check { font-size: 12px; }
+.st-json-check.ok { color: #1a7f37; }
+.st-json-check.bad { color: #c62828; }
+.st-rules { border: 1px dashed var(--border); border-radius: 8px; padding: 6px 10px; }
+.st-rules summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.st-rules summary small { font-weight: 400; color: var(--muted); }
+.st-rules .field { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.st-crules summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.st-crules textarea { width: 100%; margin-top: 4px; }

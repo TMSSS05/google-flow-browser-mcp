@@ -367,9 +367,42 @@ export async function cutoutOnWhite(context, imagePath, destFile, { prompt = hat
   return geminiTurn(context, { url: notebookUrl(), prompt: text, imagePath, mode: 'image', destFile, label: 'cutout' });
 }
 
+export const REMOVE_PEOPLE_PROMPT =
+  'Xoá TẤT CẢ người trong ảnh này (cả người ở xa, bóng người, tay, chân, phản chiếu trong gương/kính) ' +
+  'và vẽ lại phần nền phía sau họ thật tự nhiên. Giữ nguyên chính xác khung cảnh: địa điểm, đồ vật, màu sắc, ' +
+  'ánh sáng, góc chụp, tiêu cự và tỉ lệ khung hình. Không thêm gì mới, không có chữ. ' +
+  'Chỉ trả về ảnh, không cần giải thích.';
+
+/** Scene photo → the same scene with every person removed (a clean background plate). */
+export async function removePeople(context, imagePath, destFile) {
+  return geminiTurn(context, { url: chatUrl(), prompt: REMOVE_PEOPLE_PROMPT, imagePath, mode: 'image', destFile, label: 'remove-people' });
+}
+
+/** Prompt that puts the hat from the photo into a staged product scene (no people, no hands). */
+export function stagePrompt(scene, ratio = '9:16') {
+  const shape = { '9:16': 'dọc 9:16 (portrait)', '16:9': 'ngang 16:9 (landscape)', '1:1': 'vuông 1:1' }[ratio] || `tỉ lệ ${ratio}`;
+  return 'Lấy CHÍNH XÁC chiếc mũ trong ảnh này (giữ nguyên dáng, màu, chất liệu, vân đan, dây/nơ, hoạ tiết, ' +
+    'không thay đổi bất kỳ chi tiết nào của mũ) và đặt nó nằm một mình trên mặt bàn trong một bức ảnh sản phẩm chân thực. ' +
+    `Bối cảnh và ánh sáng: ${scene}. ` +
+    'Mũ nằm tự nhiên trên bàn, có bóng đổ thật xuống mặt bàn, ở giữa khung hình, chiếm khoảng một nửa khung, ' +
+    'chừa khoảng trống xung quanh để một bàn tay có thể đưa vào cầm lên. ' +
+    'KHÔNG có người, KHÔNG có tay, không chữ, không logo, không watermark. ' +
+    `Ảnh khung ${shape}, chất lượng cao, như ảnh chụp thật. Chỉ trả về ảnh, không cần giải thích.`;
+}
+
+/** Hat photo → the hat resting on a table in the given scene/lighting (an intro video's start frame). */
+export async function stageHat(context, imagePath, destFile, { scene, ratio } = {}) {
+  return geminiTurn(context, { url: chatUrl(), prompt: stagePrompt(scene, ratio), imagePath, mode: 'image', destFile, label: 'stage-hat' });
+}
+
 /** Ask Gemini a question in a new chat (it can search the web) and return its answer text. */
 export async function askGemini(context, prompt) {
   return geminiTurn(context, { url: chatUrl(), prompt, mode: 'text', label: 'ask' });
+}
+
+/** Have Gemini draw an image from a prompt plus one attached image (saved to `destFile`). */
+export async function drawFromImage(context, imagePath, prompt, destFile) {
+  return geminiTurn(context, { url: chatUrl(), prompt, imagePath, mode: 'image', destFile, label: 'draw-ref' });
 }
 
 /** Have Gemini draw an image from a text prompt (saved to `destFile`). */

@@ -218,7 +218,8 @@ export async function handleGenerateVideo(args) {
       throw new FlowError(ErrorCodes.DOWNLOAD_FAILED, 'Video generated but could not be downloaded');
     }
 
-    const result = { ...base, status: 'success', files, video_count: files.length, credits_consumed: true };
+    // tokens: the new tiles in the project grid (lets a caller open the video again, e.g. to extend it)
+    const result = { ...base, status: 'success', files, tokens: fresh, video_count: files.length, credits_consumed: true };
     saveMetadata(job.id, { ...result, start_frame: startFrame, end_frame: args.end_frame || null });
     jobQueue.completeJob(job.id, result);
     return result;

@@ -11,6 +11,11 @@ const MAX_IMAGES = 3;
 
 // User-added options for the shot builder, merged with the built-in presets in the page
 const PRESET_GROUPS = ['poses', 'scenes', 'outfits', 'styles', 'motions'];
+const IMAGE_GROUPS = ['scenes', 'outfits'];
+const IMAGE_ONLY_TEXT = {
+  scenes: 'in the exact setting shown in the scene reference image',
+  outfits: 'wearing exactly the outfit shown in the outfit reference image',
+};
 
 function load() {
   let data;
@@ -70,14 +75,17 @@ export function upsertProfile(kind, input) {
 /** Add a custom pose / scene / outfit / style. `text` is the prompt fragment. */
 export function addPreset(group, input) {
   if (!PRESET_GROUPS.includes(group)) throw new Error(`Unknown preset group: ${group}`);
+  // Scenes and outfits can carry a reference image (attached to Flow after character + hat);
+  // with an image the description is optional — the picture is the instruction.
+  const image = IMAGE_GROUPS.includes(group) && typeof input.image === 'string' && input.image.startsWith('/uploads/')
+    ? input.image : null;
   const label = String(input.label || '').trim().slice(0, 60);
-  const text = String(input.text || '').trim().slice(0, 500);
+  const text = (String(input.text || '').trim() || (image ? IMAGE_ONLY_TEXT[group] : '')).slice(0, 500);
   if (!label) throw new Error('Cần đặt tên lựa chọn.');
-  if (!text) throw new Error('Cần mô tả cho AI.');
+  if (!text) throw new Error('Cần mô tả cho AI (hoặc tải ảnh mẫu).');
   const preset = { id: `c_${Date.now()}`, label, text, custom: true };
   if (group === 'poses') preset.wear = input.wear !== false;
-  // Outfits can carry a flat-lay reference image (attached to Flow after character + hat)
-  if (group === 'outfits' && typeof input.image === 'string' && input.image.startsWith('/uploads/')) preset.image = input.image;
+  if (image) preset.image = image;
   if (input.source) preset.source = String(input.source).slice(0, 40);
   if (input.note) preset.note = String(input.note).slice(0, 300);
   const data = load();

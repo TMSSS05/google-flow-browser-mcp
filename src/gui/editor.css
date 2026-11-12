@@ -1,0 +1,140 @@
+/* Hat Studio — "Ghép video" tab: CapCut-like layout (library · player · properties / timeline).
+   Loaded by studio.html; uses its CSS variables. */
+
+/* The editor takes the whole width: hide the results column while the tab is open */
+body.edit-mode .layout { grid-template-columns: minmax(0, 1fr); }
+body.edit-mode .col-results { display: none; }
+body.edit-mode .col > .panel.scroll { flex: 1 1 auto; display: flex; flex-direction: column; overflow: hidden; padding: 10px 14px 12px; }
+body.edit-mode .col > .panel.scroll > .tabs { flex: none; }
+body.edit-mode [data-panel="edit"] { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+.ved { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.ved .btn { white-space: nowrap; }
+.ved .hint { font-size: 12px; }
+.ved-note { font-size: 11px; color: var(--muted); }
+.ved-top { flex: 1 1 58%; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr) 290px; gap: 10px; }
+.ved-lib, .ved-props, .ved-player { min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); overflow: hidden; }
+
+/* ---- library ---- */
+.ved-lib-head, .ved-player-head, .ved-props-tabs { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.ved-lib-head .btn { margin-left: auto; cursor: pointer; }
+.ved-lib-hint { margin: 0; padding: 6px 10px 0; font-size: 11px; color: var(--muted); }
+.ved-lib-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.ved-lib-group { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin: 6px 0 0; }
+.ved-media { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: center; padding: 4px; border-radius: 8px; border: 1px solid transparent; background: var(--panel); cursor: pointer; }
+.ved-media:hover { border-color: var(--accent); }
+.ved-media .th { width: 44px; height: 60px; border-radius: 6px; background: #111 center / cover no-repeat; display: grid; place-items: center; color: #fff; font-size: 18px; }
+.ved-media .th.audio { height: 44px; background: var(--accent-soft); color: var(--accent); }
+.ved-media .nm { min-width: 0; font-size: 12px; }
+.ved-media .nm b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.ved-media .nm small { color: var(--muted); }
+.ved-media .btn { padding: 3px 8px; }
+.ved-lib-list .empty { font-size: 12px; color: var(--muted); padding: 8px; }
+
+/* ---- player ---- */
+.ved-player-head .ved-note { font-weight: 400; }
+.ved-player-head .btn.primary { margin-left: auto; }
+.ved-stage { flex: 1 1 auto; min-height: 0; position: relative; display: grid; place-items: center; background: #0d0d0c; padding: 10px; }
+.ved-frame { position: relative; background: #000; overflow: hidden; box-shadow: 0 0 0 1px #333; }
+.ved-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.pv-fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 3; }
+.pv-text { position: absolute; left: 50%; transform: translateX(-50%); z-index: 4; max-width: 92%; white-space: pre-wrap; text-align: left; font-weight: 700; box-sizing: border-box; pointer-events: none; }
+.pv-text[data-pos="top"] { top: 10%; }
+.pv-text[data-pos="center"] { top: 50%; transform: translate(-50%, -50%); }
+.pv-text[data-pos="bottom"] { bottom: 14%; }
+.pv-wm { position: absolute; z-index: 5; pointer-events: none; }
+.pv-empty { position: absolute; inset: 0; display: grid; place-items: center; color: #999; font-size: 13px; text-align: center; padding: 20px; z-index: 6; }
+.ved-controls { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); }
+.ved-controls .btn { padding: 4px 10px; }
+.ved-time { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.ved-time b { color: var(--accent); }
+.ved-size { margin-left: auto; font-size: 11px; color: var(--muted); }
+
+/* export overlay on the stage */
+.ved-export { position: absolute; inset: 0; z-index: 10; display: grid; place-items: center; background: rgb(0 0 0 / .55); padding: 16px; }
+.ved-export[hidden] { display: none; }
+.ved-export-card { width: min(420px, 100%); max-height: 100%; overflow: auto; background: var(--panel); color: var(--text); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.ved-export-card h3 { margin: 0; font-size: 15px; }
+.ved-export-card .bar { height: 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
+.ved-export-card .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+.ved-export-card video { display: block; width: 100%; height: min(28vh, 260px); object-fit: contain; border-radius: 8px; background: #000; }
+.ved-export-card .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.ved-export-card .acts a.btn { text-decoration: none; display: inline-block; }
+.ved-export-card .err { color: var(--err); white-space: pre-wrap; }
+
+/* ---- properties ---- */
+.ved-props-tabs { padding: 4px 6px; gap: 2px; }
+.ved-props-tabs .ptab { flex: 1; padding: 6px 4px; border: none; border-radius: 7px; background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.ved-props-tabs .ptab[aria-selected="true"] { background: var(--panel); color: var(--accent); }
+.ved-props-body { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.ved-props-body[hidden] { display: none; }
+.ved-ph { margin: 0; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ved-props-body .field { font-size: 12px; }
+.ved-props-body .field input, .ved-props-body .field select, .ved-props-body .field textarea { width: 100%; box-sizing: border-box; font-size: 13px; }
+.ved-props-body input[type=number], .ved-props-body input[type=text] { padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; }
+.ved-props-body input[type=color] { height: 36px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.ved-props-body input[type=range] { padding: 0; }
+.ved-props-body output { color: var(--text); margin-left: 4px; }
+.ved-props-body textarea { min-height: 64px; resize: vertical; }
+.ved-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ved-sec { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.ved-sec:first-child { border-top: none; padding-top: 0; }
+.ved-sec > .section-title { margin: 0; }
+.ved-file { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.ved-file .btn { cursor: pointer; margin: 0; }
+.ved-file img { height: 32px; border-radius: 6px; background: repeating-conic-gradient(#bbb 0 25%, #fff 0 50%) 0 0 / 12px 12px; }
+.ved-file .nm { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ved-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ved-props-body .empty { color: var(--muted); font-size: 12px; }
+
+/* ---- timeline ---- */
+.ved-tl { flex: 0 0 236px; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); overflow: hidden; }
+.ved-tl-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.ved-tl-bar .btn { padding: 3px 9px; }
+.ved-tl-bar .sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+.ved-tl-bar .grow { flex: 1; }
+.ved-zoom { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.ved-zoom input { width: 110px; padding: 0; }
+.ved-tl-scroll { flex: 1; overflow: auto; position: relative; }
+.ved-tl-inner { position: relative; min-width: 100%; padding: 0 0 6px 56px; box-sizing: border-box; }
+.ved-ruler { position: sticky; top: 0; z-index: 3; height: 22px; background: var(--bg); border-bottom: 1px solid var(--border); cursor: pointer; }
+.ved-ruler .tick { position: absolute; top: 0; height: 100%; border-left: 1px solid var(--border); font-size: 10px; color: var(--muted); padding-left: 3px; pointer-events: none; }
+.ved-ruler .tick.minor { height: 6px; top: auto; bottom: 0; }
+.ved-track { position: relative; margin-top: 6px; }
+.ved-track::before { content: attr(data-label); position: absolute; left: -52px; top: 0; width: 46px; font-size: 10px; color: var(--muted); text-align: right; line-height: 1.2; }
+.ved-track-text { height: 22px; }
+.ved-track-video { height: 60px; }
+.ved-track-audio { height: 40px; }
+.ved-tl-lane { position: absolute; inset: 0; border-radius: 6px; background: color-mix(in srgb, var(--border) 45%, transparent); }
+.ved-clip { position: absolute; top: 0; height: 100%; box-sizing: border-box; border-radius: 6px; overflow: hidden; border: 2px solid transparent; background: #1b1f2a; cursor: grab; user-select: none; touch-action: none; }
+.ved-clip.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); z-index: 2; }
+.ved-clip.dragging { opacity: .55; cursor: grabbing; }
+.ved-clip .thumbs { position: absolute; inset: 0; display: flex; overflow: hidden; }
+.ved-clip .thumbs img { height: 100%; width: auto; flex: 0 0 auto; display: block; }
+.ved-clip .label { position: absolute; left: 4px; top: 3px; max-width: calc(100% - 12px); font-size: 11px; color: #fff; background: rgb(0 0 0 / .55); border-radius: 4px; padding: 0 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.ved-clip .handle { position: absolute; top: 0; bottom: 0; width: 9px; cursor: ew-resize; background: rgb(255 255 255 / .4); opacity: 0; touch-action: none; }
+.ved-clip:hover .handle, .ved-clip.selected .handle { opacity: 1; }
+.ved-clip .handle.l { left: 0; border-radius: 4px 0 0 4px; }
+.ved-clip .handle.r { right: 0; border-radius: 0 4px 4px 0; }
+.ved-clip .handle::after { content: ''; position: absolute; top: 50%; left: 3px; width: 2px; height: 14px; margin-top: -7px; background: #000; opacity: .5; }
+.ved-tr { position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; display: grid; place-items: center; z-index: 3; pointer-events: none; }
+.ved-textblock { position: absolute; top: 0; height: 100%; box-sizing: border-box; border-radius: 5px; background: var(--warn-bg); border: 1px solid var(--warn); color: var(--warn); font-size: 11px; padding: 0 6px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.ved-textblock.selected { outline: 2px solid var(--accent); }
+.ved-audio { position: absolute; top: 0; height: 100%; box-sizing: border-box; left: 0; border-radius: 6px; background: var(--accent-soft); border: 1px solid var(--accent); overflow: hidden; }
+.ved-audio canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ved-audio .label { position: absolute; left: 4px; top: 2px; font-size: 11px; color: var(--accent); background: var(--panel); border-radius: 4px; padding: 0 5px; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ved-insert { position: absolute; top: -4px; bottom: -4px; width: 3px; background: var(--accent); border-radius: 2px; z-index: 5; pointer-events: none; }
+.ved-playhead { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--text); z-index: 6; pointer-events: none; }
+.ved-playhead i { position: absolute; top: 0; left: -7px; border: 6px solid transparent; border-top: 9px solid var(--text); }
+
+@media (max-width: 1100px) {
+  .ved-top { grid-template-columns: 180px minmax(0, 1fr) 250px; }
+}
+@media (max-width: 900px) {
+  body.edit-mode .col > .panel.scroll { overflow: visible; }
+  .ved-top { grid-template-columns: 1fr; grid-template-rows: auto; flex: none; }
+  .ved-lib { max-height: 220px; }
+  .ved-stage { min-height: 300px; }
+  .ved-props { max-height: 360px; }
+  .ved-tl { flex: 0 0 236px; }
+}

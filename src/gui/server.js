@@ -12,16 +12,19 @@ import { getPage, setBrowser, isBrowserConnected } from '../browser/connect.js';
 import { verifyAccount, readSignedInEmail } from '../browser/account-check.js';
 import { handleGenerateImage } from '../tools/generate-image.js';
 import { handleGenerateVideo, resolveVideoModel } from '../tools/generate-video.js';
+import { extendVideoChain } from '../tools/extend-video.js';
 import { acquireLock, releaseLock, otherHolder } from '../utils/browser-lock.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { extractProductInfo, hasCredentials, SUPPORTED_DOC_EXTS } from './doc-extract.js';
 import { sendFiles, recentChats, telegramEnabled, defaultChatId } from './telegram.js';
 import { startTelegramWatcher, watcherRunning, listInbox, getItem, updateItem, knownChats } from './telegram-inbox.js';
-import { cutoutOnWhite, notebookUrl, askGemini, drawWithGemini } from './gemini.js';
+import { cutoutOnWhite, notebookUrl, askGemini, drawWithGemini, drawFromImage, removePeople, stageHat } from './gemini.js';
 import { fetchTikTokHashtags, fetchGoogleTrends, loadTrendsCache, saveTrendsCache } from './trends.js';
 import { outfitIdeasPrompt, parseOutfitIdeas, flatlayPrompt } from './outfit-ideas.js';
 import { getContext } from '../browser/connect.js';
 import { listProfiles, getProfile, upsertProfile, deleteProfile, addPreset, deletePreset } from './studio-store.js';
+import { storyPrompt, reviewPrompt, parseStory, characterPrompt } from './story.js';
+import { lastFrame, ffmpegInfo, probe, planEdit, startEdit, getJob, currentJob, cancelEdit, jobView, TRANSITIONS, FONT_LABELS } from './video-edit.js';
 
 const PORT = Number(process.env.FLOW_GUI_PORT) || 4321;
 const HOST = '127.0.0.1';
@@ -33,8 +36,11 @@ const INDEX_HTML = path.join(import.meta.dirname, 'index.html');
 const STUDIO_HTML = path.join(import.meta.dirname, 'studio.html');
 
 const MIME = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+// The video editor also takes music, a watermark and clips from the user's machine
+const MEDIA_MIME = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav', '.aac': 'audio/aac', '.mp4': 'video/mp4' };
+const MAX_MEDIA_UPLOAD_BYTES = 300 * 1024 * 1024;
 
-const SERVE_MIME = { ...MIME, '.mp4': 'video/mp4' };
+const SERVE_MIME = { ...MIME, ...MEDIA_MIME, '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const VIDEO_EXTS = ['.mp4'];
 
 function sendJson(res, status, body) {
@@ -140,6 +146,16 @@ function outputUrlToPath(u) {
   return filePath.startsWith(OUTPUTS_DIR + path.sep) && fs.existsSync(filePath) ? filePath : null;
 }
 
+/** /outputs/… or /uploads/… URL → local file; throws (400) when it doesn't exist. */
+function mediaUrlToPath(u) {
+  const out = outputUrlToPath(u);
+  if (out) return out;
+  if (typeof u === 'string' && u.startsWith('/uploads/')) {
+    try { return uploadUrlToPath(u); } catch (err) { throw Object.assign(err, { status: 400 }); }
+  }
+  throw Object.assign(new Error(`Không tìm thấy file: ${u}`), { status: 400 });
+}
+
 async function connect() {
   const result = await launchKiaraProfile(false);
   if (result.browser) setBrowser(result.browser);
@@ -155,6 +171,13 @@ async function connect() {
  */
 async function ensureFlowReady() {
   if (!isBrowserConnected()) await connect();
+  // Left in a video's scene editor (…/project/<id>/edit/<id>)? Back to the project grid first.
+  const page = getPage();
+  const edit = /^(https:\/\/[^/]+\/project\/[^/]+)\/edit\//.exec(page.url());
+  if (edit) {
+    await page.goto(edit[1], { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(3000);
+  }
   const nav = await navigateToFlow(getPage()); // no-op when already in the app
   if (nav?.authenticated === false) {
     throw new Error(`Chrome chưa đăng nhập Google Flow. Hãy đăng nhập ${get('expectedAccount')} trong cửa sổ Chrome đang mở, rồi bấm lại.`);
@@ -235,19 +258,28 @@ const translations = new Map(); // same phrase → no repeat request
 const batches = new Map();
 
 function batchView(b) {
-  const { id, kind = 'image', productId, characterId, createdAt, finishedAt, error, cancelled } = b;
+  const { id, kind = 'image', productId, characterId, createdAt, finishedAt, error, cancelled, film = null, filmSeconds = null } = b;
   const items = b.items.map(({ startFile, endFile, ...rest }) => rest);
-  return { id, kind, productId, characterId, items, createdAt, finishedAt, error, cancelled, running: !finishedAt };
+  return { id, kind, productId, characterId, items, createdAt, finishedAt, error, cancelled, film, filmSeconds, running: !finishedAt };
 }
 
 async function runVideoBatch(batch, { maxCredits, outputFolder, ...settings }) {
   setBusy(true);
   try {
     await ensureFlowReady();
-    for (const item of batch.items) {
+    for (const [idx, item] of batch.items.entries()) {
       if (batch.cancelled) { item.status = 'cancelled'; continue; }
       item.status = 'running';
       try {
+        if (item.chainPrev) {
+          // continue from the end of the previous clip of this batch
+          const prev = batch.items[idx - 1];
+          const prevFile = prev?.videos?.[0] && outputUrlToPath(prev.videos[0]);
+          if (!prevFile) throw new Error('Cảnh trước chưa có video nên không nối tiếp được.');
+          const name = `ref_${Date.now()}_lastframe.png`;
+          item.startFile = await lastFrame(prevFile, path.join(UPLOADS_DIR, name));
+          item.frame = `/uploads/${name}`;
+        }
         const r = await handleGenerateVideo({
           ...settings, prompt: item.prompt, start_frame: item.startFile, end_frame: item.endFile || undefined,
           auto_confirm: true, max_credits: maxCredits, output_folder: outputFolder,
@@ -297,6 +329,102 @@ async function runBatch(batch, { references, model, ratio, outputFolder }) {
     batch.finishedAt = new Date().toISOString();
     setBusy(false);
   }
+}
+
+/**
+ * Film mode: scene 1 = image → video, then every later shot = Flow's "Kéo dài" (extend) on that
+ * same video, so the whole film continues from frame to frame. Item 0 is the first video; items
+ * 1… are the extensions. The joined film (downloaded from Flow) is batch.film.
+ */
+async function runFilmBatch(batch, { settings, maxCredits, maxExtendCredits, outputFolder }) {
+  setBusy(true);
+  const [first, ...steps] = batch.items;
+  try {
+    await ensureFlowReady();
+    first.status = 'running';
+    const r = await handleGenerateVideo({
+      ...settings, prompt: first.prompt, start_frame: first.startFile, auto_confirm: true, max_credits: maxCredits, output_folder: outputFolder,
+    });
+    first.status = 'done';
+    first.videos = (r.files || []).map(toOutputUrl);
+    if (!steps.length) { batch.film = first.videos[0] || null; return; }
+    const token = r.tokens?.[0];
+    if (!token) throw new Error('Không tìm thấy video vừa tạo trong Flow để kéo dài.');
+    const outFile = path.join(outputFolder, `phim_${Date.now()}.mp4`);
+    const res = await extendVideoChain(getPage(), {
+      token, steps, outFile, maxCredits: maxExtendCredits, isCancelled: () => batch.cancelled,
+    });
+    batch.film = toOutputUrl(res.file);
+    batch.filmSeconds = res.seconds;
+    steps.filter(s => s.status === 'done').at(-1)?.videos.push(batch.film);
+  } catch (err) {
+    batch.error = err.message;
+    logger.warn('Film failed', { batch: batch.id, error: err.message });
+    for (const item of batch.items) if (item.status === 'pending' || item.status === 'running') { item.status = 'error'; item.error = err.message; }
+  } finally {
+    batch.finishedAt = new Date().toISOString();
+    setBusy(false);
+  }
+}
+
+/** /api/video with per-scene sources (see the route). Same check/confirm flow as plain frames. */
+async function storyVideo(req, res, body, frameFile) {
+  const sources = body.sources.slice(0, 20);
+  const prompts = Array.isArray(body.prompts) ? body.prompts : [];
+  if (sources[0]?.fromPrev) return sendJson(res, 400, { error: 'Cảnh đầu tiên cần ảnh hoặc video để bắt đầu.' });
+  const items = [];
+  try {
+    for (const [i, src] of sources.entries()) {
+      const label = String(src.label || `Cảnh ${i + 1}`).slice(0, 60);
+      const prompt = String(prompts[i] ?? '').trim();
+      if (!prompt) throw Object.assign(new Error(`Chưa có mô tả cho ${label}.`), { status: 400 });
+      if (src.fromPrev) { items.push({ label, prompt, start: null, chainPrev: true }); continue; }
+      if (src.fromVideo) {
+        const video = outputUrlToPath(String(src.fromVideo));
+        if (!video) throw Object.assign(new Error(`Không tìm thấy video của cảnh trước ${label}.`), { status: 400 });
+        fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+        const name = `ref_${Date.now()}_${i}_lastframe.png`;
+        const file = await lastFrame(video, path.join(UPLOADS_DIR, name));
+        items.push({ label, prompt, start: { url: `/uploads/${name}`, file } });
+        continue;
+      }
+      const file = frameFile(String(src.image || ''));
+      if (!file) throw Object.assign(new Error(`${label} chưa có ảnh bắt đầu.`), { status: 400 });
+      items.push({ label, prompt, start: { url: src.image, file } });
+    }
+  } catch (err) { return sendJson(res, err.status || 500, { error: err.message }); }
+  const model = resolveVideoModel(body.model);
+  if (!model) return sendJson(res, 400, { error: `Model video không hợp lệ: ${body.model}` });
+  const settings = { model, ratio: body.ratio || '9:16', duration: Number(body.duration) || 8, quantity: 1, audio: body.audio === true };
+
+  if (body.confirm !== true) {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    setBusy(true);
+    try {
+      await ensureFlowReady();
+      const r = await handleGenerateVideo({ ...settings, prompt: items[0].prompt, start_frame: items[0].start.file, auto_confirm: false });
+      return sendJson(res, 200, { ...r, count: items.length, total_credits: r.credits * items.length,
+        screenshotUrl: r.screenshot ? `/screenshot?path=${encodeURIComponent(r.screenshot)}` : null });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+  const maxCredits = Number(body.maxCredits);
+  if (!(maxCredits > 0)) return sendJson(res, 400, { error: 'Thiếu số credit đã đồng ý (bấm "Kiểm tra trên Flow" trước).' });
+  if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+  const productId = /^story_[\w-]{1,40}$/.test(String(body.folder || '')) ? body.folder : 'story';
+  const batch = {
+    id: `v_${Date.now()}`, kind: 'video', productId, createdAt: new Date().toISOString(),
+    items: items.map(it => ({
+      label: it.label, prompt: it.prompt, status: 'pending', images: [], videos: [],
+      frame: it.start?.url || null, endFrame: null, startFile: it.start?.file || null, endFile: null, chainPrev: !!it.chainPrev,
+    })),
+  };
+  batches.set(batch.id, batch);
+  void runVideoBatch(batch, { ...settings, maxCredits, outputFolder: path.join(OUTPUTS_DIR, 'videos', productId) });
+  sendJson(res, 200, batchView(batch));
 }
 
 /** Resolve the character + hat profiles of a batch request into local reference image paths. */
@@ -367,6 +495,9 @@ const routes = {
       if (typeof u === 'string' && u.startsWith('/uploads/')) { try { return uploadUrlToPath(u); } catch { return null; } }
       return null;
     };
+    // Story chaining: body.sources = one per prompt — { image } | { fromVideo } (start from that clip's
+    // last frame) | { fromPrev: true } (start from the last frame of the previous clip of this batch)
+    if (Array.isArray(body.sources) && body.sources.length) return storyVideo(req, res, body, frameFile);
     const frames = [...new Set(body.images || [])].map(u => ({ url: u, file: frameFile(u) }));
     if (!frames.length) return sendJson(res, 400, { error: 'Chưa chọn ảnh nào.' });
     const missing = frames.find(f => !f.file);
@@ -403,7 +534,7 @@ const routes = {
     const maxCredits = Number(body.maxCredits);
     if (!(maxCredits > 0)) return sendJson(res, 400, { error: 'Thiếu số credit đã đồng ý (bấm "Kiểm tra trên Flow" trước).' });
     // Frames live in outputs/images/<productId>/ — keep the videos next to the same hat
-    const productId = path.basename(path.dirname(frames[0].file));
+    const productId = /^story_[\w-]{1,40}$/.test(String(body.folder || '')) ? body.folder : path.basename(path.dirname(frames[0].file));
     const batch = {
       id: `v_${Date.now()}`,
       kind: 'video',
@@ -505,6 +636,236 @@ const routes = {
     } finally {
       setBusy(false);
     }
+  },
+
+  // body: { image: "/uploads/…" } → Gemini removes every person → { url } of the clean scene
+  'POST /api/scene/remove-people': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    let source;
+    try { source = uploadUrlToPath(String(body.image || '')); } catch (err) { return sendJson(res, 400, { error: err.message }); }
+    setBusy(true);
+    try {
+      if (!isBrowserConnected()) await connect();
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      const name = `ref_${Date.now()}_scene_clean.png`;
+      await removePeople(getContext(), source, path.join(UPLOADS_DIR, name));
+      sendJson(res, 200, { url: `/uploads/${name}` });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  },
+
+  // ---- Cartoon story ("Truyện hoạt hình") ----
+  // body: { image, firstPrompt, extends: [{ label, prompt }], model, duration, ratio, audio, folder,
+  //         confirm, maxCredits, maxExtendCredits } — see runFilmBatch. confirm=false → Flow's cost of
+  // the first video (an extension's cost can only be read once a video exists; ~12 credits).
+  'POST /api/story/film': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    let start;
+    try { start = mediaUrlToPath(String(body.image || '')); } catch { return sendJson(res, 400, { error: 'Cảnh 1 chưa có ảnh bắt đầu.' }); }
+    const firstPrompt = String(body.firstPrompt || '').trim();
+    if (!firstPrompt) return sendJson(res, 400, { error: 'Cảnh 1 chưa có mô tả.' });
+    const exts = (Array.isArray(body.extends) ? body.extends : []).slice(0, 40)
+      .map((x, i) => ({ label: String(x.label || `Đoạn ${i + 2}`).slice(0, 60), prompt: String(x.prompt || '').trim() }));
+    const empty = exts.find(x => !x.prompt);
+    if (empty) return sendJson(res, 400, { error: `Chưa có mô tả cho ${empty.label}.` });
+    const model = resolveVideoModel(body.model);
+    if (!model) return sendJson(res, 400, { error: `Model video không hợp lệ: ${body.model}` });
+    const settings = { model, ratio: body.ratio || '9:16', duration: Number(body.duration) || 8, quantity: 1, audio: body.audio === true };
+
+    if (body.confirm !== true) {
+      setBusy(true);
+      try {
+        await ensureFlowReady();
+        const r = await handleGenerateVideo({ ...settings, prompt: firstPrompt, start_frame: start, auto_confirm: false });
+        return sendJson(res, 200, { credits: r.credits, extendCredits: 12, extendCount: exts.length,
+          screenshotUrl: r.screenshot ? `/screenshot?path=${encodeURIComponent(r.screenshot)}` : null });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      } finally {
+        setBusy(false);
+      }
+    }
+    const maxCredits = Number(body.maxCredits);
+    if (!(maxCredits > 0)) return sendJson(res, 400, { error: 'Thiếu số credit đã đồng ý.' });
+    const productId = /^story_[\w-]{1,40}$/.test(String(body.folder || '')) ? body.folder : 'story';
+    const batch = {
+      id: `f_${Date.now()}`, kind: 'video', productId, createdAt: new Date().toISOString(),
+      items: [
+        { label: 'Cảnh 1', prompt: firstPrompt, status: 'pending', images: [], videos: [], frame: String(body.image), startFile: start },
+        ...exts.map(x => ({ label: x.label, prompt: x.prompt, status: 'pending', images: [], videos: [], extend: true })),
+      ],
+    };
+    batches.set(batch.id, batch);
+    void runFilmBatch(batch, {
+      settings, maxCredits, maxExtendCredits: Number(body.maxExtendCredits) > 0 ? Number(body.maxExtendCredits) : 20,
+      outputFolder: path.join(OUTPUTS_DIR, 'videos', productId),
+    });
+    sendJson(res, 200, batchView(batch));
+  },
+  // body: { idea, tone, scenes, seconds, style, cast } → Gemini writes the script → { title, cast, scenes }
+  'POST /api/story/write': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    setBusy(true);
+    try {
+      if (!isBrowserConnected()) await connect();
+      const { text } = await askGemini(getContext(), storyPrompt({ ...body, cast: Array.isArray(body.cast) ? body.cast : [] }));
+      sendJson(res, 200, parseStory(text));
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  },
+  // body: { story: { title, logline, cast, scenes }, tone, seconds, style, note } → Gemini finds the logic
+  // holes and returns a fixed script (same shape as /write) plus notes on what it changed
+  'POST /api/story/review': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    if (!Array.isArray(body.story?.scenes) || !body.story.scenes.length) return sendJson(res, 400, { error: 'Chưa có cảnh nào để kiểm tra.' });
+    setBusy(true);
+    try {
+      if (!isBrowserConnected()) await connect();
+      const { text } = await askGemini(getContext(), reviewPrompt(body));
+      sendJson(res, 200, parseStory(text));
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  },
+  // body: { name, fruit, look, style } → Gemini draws the character on white → { url }
+  'POST /api/story/character': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    if (!String(body.name || '').trim()) return sendJson(res, 400, { error: 'Nhân vật chưa có tên.' });
+    let outfitFile = null;
+    if (body.outfitImage) {
+      try { outfitFile = uploadUrlToPath(String(body.outfitImage)); } catch (err) { return sendJson(res, 400, { error: err.message }); }
+    }
+    setBusy(true);
+    try {
+      if (!isBrowserConnected()) await connect();
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      const name = `ref_${Date.now()}_story_char.png`;
+      const dest = path.join(UPLOADS_DIR, name);
+      if (outfitFile) await drawFromImage(getContext(), outfitFile, characterPrompt({ ...body, withOutfitImage: true }), dest);
+      else await drawWithGemini(getContext(), characterPrompt(body), dest);
+      sendJson(res, 200, { url: `/uploads/${name}` });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  },
+  // body: { storyId, model, ratio, confirm, shots: [{ label, prompt, refs: ["/uploads/…" character images] }] }
+  // Same flow as /api/batch (confirm=false: fill the first shot in Flow, no credit) but the references
+  // are per scene (the characters in it) and the images go to outputs/images/story_<id>/.
+  'POST /api/story/images': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    const storyId = String(body.storyId || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
+    if (!storyId) return sendJson(res, 400, { error: 'Thiếu mã truyện.' });
+    const shots = (body.shots || []).filter(s => String(s.prompt || '').trim()).slice(0, 12);
+    if (!shots.length) return sendJson(res, 400, { error: 'Chưa có cảnh nào để tạo ảnh.' });
+    let shotRefs;
+    try {
+      shotRefs = shots.map(s => (Array.isArray(s.refs) ? s.refs : []).filter(u => typeof u === 'string' && u.startsWith('/uploads/')).slice(0, 4).map(uploadUrlToPath));
+    } catch (err) { return sendJson(res, 400, { error: err.message }); }
+
+    if (body.confirm !== true) {
+      setBusy(true);
+      try {
+        await ensureFlowReady();
+        const r = await handleGenerateImage({
+          prompt: shots[0].prompt.trim(), model: body.model, ratio: body.ratio, quantity: 1,
+          reference_images: shotRefs[0], auto_confirm: false,
+        });
+        return sendJson(res, 200, { ...r, screenshotUrl: r.screenshot ? `/screenshot?path=${encodeURIComponent(r.screenshot)}` : null });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    const productId = `story_${storyId}`;
+    const batch = {
+      id: `b_${Date.now()}`,
+      productId,
+      createdAt: new Date().toISOString(),
+      items: shots.map((s, i) => ({ pose: `scene${i + 1}`, label: String(s.label || `Cảnh ${i + 1}`).slice(0, 60), prompt: s.prompt.trim(), extraRefs: shotRefs[i], status: 'pending', images: [] })),
+    };
+    batches.set(batch.id, batch);
+    void runBatch(batch, { references: [], model: body.model, ratio: body.ratio, outputFolder: path.join(OUTPUTS_DIR, 'images', productId) });
+    sendJson(res, 200, batchView(batch));
+  },
+
+  // body: { image: "/uploads/…" | "/outputs/…", scene: "english scene text", ratio } → the hat staged
+  // on a table in that scene (Gemini) → { url } — used as the start frame of an intro video
+  'POST /api/intro/start-frame': async (req, res) => {
+    if (busyReason()) return sendJson(res, 409, { error: busyReason() });
+    const body = await readBody(req);
+    let source = null;
+    try { source = mediaUrlToPath(String(body.image || '')); } catch {}
+    if (!source || !fs.existsSync(source)) return sendJson(res, 400, { error: 'Không tìm thấy ảnh mũ.' });
+    const scene = String(body.scene || '').trim().slice(0, 800) || 'a warm wooden tabletop, soft natural light';
+    const ratio = ['9:16', '16:9', '1:1'].includes(body.ratio) ? body.ratio : '9:16';
+    setBusy(true);
+    try {
+      if (!isBrowserConnected()) await connect();
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      const name = `ref_${Date.now()}_intro_frame.png`;
+      await stageHat(getContext(), source, path.join(UPLOADS_DIR, name), { scene, ratio });
+      sendJson(res, 200, { url: `/uploads/${name}` });
+    } catch (err) {
+      sendJson(res, 500, { error: err.message });
+    } finally {
+      setBusy(false);
+    }
+  },
+
+  // ---- Video editor (ffmpeg): join clips with transitions, fades, text, music, watermark ----
+  'GET /api/edit/tools': async (req, res) => sendJson(res, 200, { ...(await ffmpegInfo()), transitions: TRANSITIONS, fonts: FONT_LABELS }),
+  // body: { files: ["/outputs/…" | "/uploads/…"] } → duration / size / audio of each (for the trim controls)
+  'POST /api/edit/probe': async (req, res) => {
+    const files = [...new Set((await readBody(req)).files || [])].slice(0, 40);
+    const out = [];
+    for (const url of files) {
+      try { out.push({ url, ...(await probe(mediaUrlToPath(url))) }); } catch (err) { out.push({ url, error: err.message }); }
+    }
+    sendJson(res, 200, out);
+  },
+  // body: see planEdit() in video-edit.js. Renders in the background; poll GET /api/edit?id=
+  'POST /api/edit': async (req, res) => {
+    const tools = await ffmpegInfo();
+    if (!tools.available) return sendJson(res, 503, { error: 'Chưa có ffmpeg. Cài bằng "winget install Gyan.FFmpeg" rồi khởi động lại GUI.' });
+    const body = await readBody(req);
+    let plan;
+    try { plan = await planEdit(body, mediaUrlToPath); } catch (err) { return sendJson(res, err.status || 400, { error: err.message }); }
+    const folder = String(body.productId || '').replace(/[^\w.-]+/g, '_').slice(0, 60) || 'ghep';
+    const base = String(body.name || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'ghep';
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
+    const outFile = path.join(OUTPUTS_DIR, 'videos', folder, `${base}_${stamp}.mp4`);
+    try { sendJson(res, 200, jobView(startEdit(plan, outFile, toOutputUrl))); }
+    catch (err) { sendJson(res, err.status || 500, { error: err.message }); }
+  },
+  'GET /api/edit': (req, res, url) => {
+    const id = url.searchParams.get('id');
+    const job = id ? getJob(id) : currentJob();
+    if (!job) return sendJson(res, id ? 404 : 200, id ? { error: 'Không tìm thấy lượt ghép này (server có thể đã khởi động lại).' } : null);
+    sendJson(res, 200, jobView(job));
+  },
+  'POST /api/edit/cancel': async (req, res) => {
+    const job = cancelEdit((await readBody(req)).id);
+    if (!job) return sendJson(res, 404, { error: 'Không tìm thấy lượt ghép này.' });
+    sendJson(res, 200, jobView(job));
   },
 
   // ---- Telegram inbox → Gemini white-background cut-out → new hat profile ----
@@ -646,8 +1007,8 @@ const routes = {
   'POST /api/upload': async (req, res) => {
     const original = decodeURIComponent(req.headers['x-filename'] || 'image.jpg');
     const ext = path.extname(original).toLowerCase();
-    if (!MIME[ext]) return sendJson(res, 400, { error: 'Chỉ nhận ảnh JPG, PNG hoặc WEBP.' });
-    const data = await readRawBody(req, MAX_UPLOAD_BYTES);
+    if (!MIME[ext] && !MEDIA_MIME[ext]) return sendJson(res, 400, { error: 'Chỉ nhận ảnh JPG/PNG/WEBP, nhạc MP3/M4A/WAV/AAC hoặc video MP4.' });
+    const data = await readRawBody(req, MEDIA_MIME[ext] ? MAX_MEDIA_UPLOAD_BYTES : MAX_UPLOAD_BYTES);
     if (!data.length) return sendJson(res, 400, { error: 'File rỗng.' });
 
     const base = path.basename(original, ext).normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -757,6 +1118,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname.startsWith('/uploads/')) {
       return serveFile(res, UPLOADS_DIR, path.basename(decodeURIComponent(url.pathname.slice('/uploads/'.length))));
+    }
+    // Page assets that live next to the HTML (the video editor's script + stylesheet)
+    if (req.method === 'GET' && url.pathname.startsWith('/gui/')) {
+      const name = path.basename(url.pathname);
+      if (!/^[\w.-]+\.(js|css)$/.test(name)) { res.writeHead(404); return res.end('Not found'); }
+      return serveFile(res, import.meta.dirname, name);
     }
     if (req.method === 'GET' && url.pathname === '/screenshot') {
       const root = path.resolve(get('flowHome', '.'), 'screenshots-debug');

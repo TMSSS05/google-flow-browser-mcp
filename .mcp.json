@@ -3,7 +3,7 @@
     "google-flow": {
       "type": "stdio",
       "command": "node",
-      "args": ["D:/Project/Vibe/tiktoks/google-flow-browser-mcp/src/index.js"]
+      "args": ["D:/Projects/SULONG/Tools/google-flow-browser-mcp/src/index.js"]
     }
   }
 }
